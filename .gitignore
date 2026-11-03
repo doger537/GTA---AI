@@ -1,0 +1,16 @@
+**/connection.json
+**/node_modules/
+**/training-env/
+**/models/
+**/trained/
+**/recordings/
+**/observation-recordings/
+**/datasets/
+**/runs/
+**/__pycache__/
+work/
+*.exe
+*.dll
+*.zip
+.env*
+/PROJECT-STATE.md

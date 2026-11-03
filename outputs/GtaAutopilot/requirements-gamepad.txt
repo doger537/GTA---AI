@@ -1,0 +1,2 @@
+# On reinstall set VGAMEPAD_SKIP_VIGEMBUS_INSTALL=true; install verified driver separately.
+vgamepad==0.2.0

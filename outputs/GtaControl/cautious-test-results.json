@@ -1,0 +1,72 @@
+{
+  "trials": [
+    {
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 916,
+      "frame_age_ms": 55,
+      "sequence": 40539,
+      "connection_id": 37,
+      "action_ms": 743,
+      "capture_ms": 155,
+      "total_ms": 914,
+      "interrupted": false,
+      "pulse_ms": 200,
+      "direction": "forward",
+      "steer": "straight",
+      "maneuver_ms": 1155
+    },
+    {
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 905,
+      "frame_age_ms": 66,
+      "sequence": 42990,
+      "connection_id": 44,
+      "action_ms": 725,
+      "capture_ms": 145,
+      "total_ms": 903,
+      "interrupted": false,
+      "pulse_ms": 300,
+      "direction": "forward",
+      "steer": "straight",
+      "maneuver_ms": 1245
+    },
+    {
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 900,
+      "frame_age_ms": 55,
+      "sequence": 43253,
+      "connection_id": 45,
+      "action_ms": 709,
+      "capture_ms": 157,
+      "total_ms": 898,
+      "interrupted": false,
+      "pulse_ms": 150,
+      "direction": "forward",
+      "steer": "left",
+      "maneuver_ms": 1107
+    },
+    {
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 900,
+      "frame_age_ms": 57,
+      "sequence": 43535,
+      "connection_id": 46,
+      "action_ms": 708,
+      "capture_ms": 141,
+      "total_ms": 899,
+      "interrupted": false,
+      "pulse_ms": 150,
+      "direction": "forward",
+      "steer": "right",
+      "maneuver_ms": 1142
+    }
+  ],
+  "conclusion": {
+    "collision_observed": false,
+    "route_tested": false,
+    "turning_visually_confirmed": false,
+    "small_forward_motion_observed": true,
+    "mean_maneuver_ms": 1162,
+    "notes": "Very short throttle pulses plus 700 ms braking cause very little motion. No demonstrated route-driving improvement. Camera adjusted manually; automatic camera lock not implemented."
+  }
+}

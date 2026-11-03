@@ -1,0 +1,504 @@
+{
+  "summary": {
+    "commands": 26,
+    "extra_min_ms": 131,
+    "extra_max_ms": 223,
+    "extra_mean_ms": 175,
+    "frame_age_min_ms": 51,
+    "frame_age_max_ms": 72,
+    "route_elapsed_ms": 88740,
+    "route_start_m": 196,
+    "route_best_remaining_m": 99,
+    "route_completed": false
+  },
+  "tests": [
+    {
+      "name": "W",
+      "payload": {
+        "keys": [
+          "w"
+        ],
+        "duration_ms": 1000
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1220,
+      "frame_age_ms": 63,
+      "sequence": 2948,
+      "connection_id": 5,
+      "action_ms": 1007,
+      "capture_ms": 166,
+      "total_ms": 1216,
+      "interrupted": false
+    },
+    {
+      "name": "A",
+      "payload": {
+        "keys": [
+          "a"
+        ],
+        "duration_ms": 800
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 995,
+      "frame_age_ms": 53,
+      "sequence": 3140,
+      "connection_id": 5,
+      "action_ms": 829,
+      "capture_ms": 153,
+      "total_ms": 993,
+      "interrupted": false
+    },
+    {
+      "name": "D",
+      "payload": {
+        "keys": [
+          "d"
+        ],
+        "duration_ms": 800
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 965,
+      "frame_age_ms": 51,
+      "sequence": 3341,
+      "connection_id": 5,
+      "action_ms": 824,
+      "capture_ms": 115,
+      "total_ms": 963,
+      "interrupted": false
+    },
+    {
+      "name": "S",
+      "payload": {
+        "keys": [
+          "s"
+        ],
+        "duration_ms": 800
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 987,
+      "frame_age_ms": 52,
+      "sequence": 3516,
+      "connection_id": 5,
+      "action_ms": 825,
+      "capture_ms": 147,
+      "total_ms": 985,
+      "interrupted": false
+    },
+    {
+      "name": "Бег W+Shift",
+      "payload": {
+        "keys": [
+          "w",
+          "shift"
+        ],
+        "duration_ms": 1200
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1377,
+      "frame_age_ms": 53,
+      "sequence": 3756,
+      "connection_id": 6,
+      "action_ms": 1221,
+      "capture_ms": 125,
+      "total_ms": 1374,
+      "interrupted": false
+    },
+    {
+      "name": "Прыжок",
+      "payload": {
+        "keys": [
+          "w",
+          "space"
+        ],
+        "duration_ms": 250
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 473,
+      "frame_age_ms": 63,
+      "sequence": 3931,
+      "connection_id": 6,
+      "action_ms": 287,
+      "capture_ms": 165,
+      "total_ms": 471,
+      "interrupted": false
+    },
+    {
+      "name": "Выбор оружия 2",
+      "payload": {
+        "keys": [
+          "2"
+        ],
+        "duration_ms": 120
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 293,
+      "frame_age_ms": 54,
+      "sequence": 4430,
+      "connection_id": 9,
+      "action_ms": 137,
+      "capture_ms": 150,
+      "total_ms": 291,
+      "interrupted": false
+    },
+    {
+      "name": "Закрытие колеса Tab",
+      "payload": {
+        "keys": [
+          "tab"
+        ],
+        "duration_ms": 120
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 316,
+      "frame_age_ms": 58,
+      "sequence": 4650,
+      "connection_id": 10,
+      "action_ms": 135,
+      "capture_ms": 169,
+      "total_ms": 313,
+      "interrupted": false
+    },
+    {
+      "name": "Подход к машине",
+      "payload": {
+        "keys": [
+          "w",
+          "a",
+          "shift"
+        ],
+        "duration_ms": 1200
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1472,
+      "frame_age_ms": 53,
+      "sequence": 4907,
+      "connection_id": 11,
+      "action_ms": 1249,
+      "capture_ms": 131,
+      "total_ms": 1469,
+      "interrupted": false
+    },
+    {
+      "name": "Подход к машине 2",
+      "payload": {
+        "keys": [
+          "w",
+          "shift"
+        ],
+        "duration_ms": 2500
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 2682,
+      "frame_age_ms": 51,
+      "sequence": 5163,
+      "connection_id": 12,
+      "action_ms": 2537,
+      "capture_ms": 116,
+      "total_ms": 2680,
+      "interrupted": false
+    },
+    {
+      "name": "Выход от стены",
+      "payload": {
+        "keys": [
+          "d"
+        ],
+        "duration_ms": 1500
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1680,
+      "frame_age_ms": 51,
+      "sequence": 5404,
+      "connection_id": 13,
+      "action_ms": 1517,
+      "capture_ms": 148,
+      "total_ms": 1677,
+      "interrupted": false
+    },
+    {
+      "name": "F посадка",
+      "payload": {
+        "keys": [
+          "f"
+        ],
+        "duration_ms": 150
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 298,
+      "frame_age_ms": 53,
+      "sequence": 5604,
+      "connection_id": 14,
+      "action_ms": 167,
+      "capture_ms": 125,
+      "total_ms": 295,
+      "interrupted": false
+    },
+    {
+      "name": "Разгон автомобиля",
+      "payload": {
+        "keys": [
+          "w"
+        ],
+        "duration_ms": 1000
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1182,
+      "frame_age_ms": 52,
+      "sequence": 6043,
+      "connection_id": 15,
+      "action_ms": 1029,
+      "capture_ms": 145,
+      "total_ms": 1179,
+      "interrupted": false
+    },
+    {
+      "name": "Руление влево",
+      "payload": {
+        "keys": [
+          "w",
+          "a"
+        ],
+        "duration_ms": 900
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1139,
+      "frame_age_ms": 58,
+      "sequence": 6290,
+      "connection_id": 16,
+      "action_ms": 931,
+      "capture_ms": 151,
+      "total_ms": 1136,
+      "interrupted": false
+    },
+    {
+      "name": "Торможение S",
+      "payload": {
+        "keys": [
+          "s"
+        ],
+        "duration_ms": 700
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 918,
+      "frame_age_ms": 58,
+      "sequence": 6554,
+      "connection_id": 17,
+      "action_ms": 724,
+      "capture_ms": 177,
+      "total_ms": 914,
+      "interrupted": false
+    },
+    {
+      "name": "Открыть карту",
+      "payload": {
+        "keys": [
+          "escape"
+        ],
+        "duration_ms": 120
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 348,
+      "frame_age_ms": 72,
+      "sequence": 6804,
+      "connection_id": 18,
+      "action_ms": 151,
+      "capture_ms": 190,
+      "total_ms": 343,
+      "interrupted": false
+    },
+    {
+      "name": "Развернуть карту",
+      "payload": {
+        "keys": [
+          "enter"
+        ],
+        "duration_ms": 120
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 297,
+      "frame_age_ms": 52,
+      "sequence": 7013,
+      "connection_id": 19,
+      "action_ms": 137,
+      "capture_ms": 143,
+      "total_ms": 293,
+      "interrupted": false
+    },
+    {
+      "name": "Закрыть карту",
+      "payload": {
+        "keys": [
+          "escape"
+        ],
+        "duration_ms": 120
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 303,
+      "frame_age_ms": 55,
+      "sequence": 7728,
+      "connection_id": 20,
+      "action_ms": 134,
+      "capture_ms": 150,
+      "total_ms": 300,
+      "interrupted": false
+    },
+    {
+      "name": "Закрыть меню",
+      "payload": {
+        "keys": [
+          "escape"
+        ],
+        "duration_ms": 120
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 355,
+      "frame_age_ms": 51,
+      "sequence": 7932,
+      "connection_id": 21,
+      "action_ms": 150,
+      "capture_ms": 160,
+      "total_ms": 353,
+      "interrupted": false
+    },
+    {
+      "name": "Маршрут: прямой участок",
+      "payload": {
+        "keys": [
+          "w"
+        ],
+        "duration_ms": 3500
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 3697,
+      "frame_age_ms": 55,
+      "sequence": 8334,
+      "connection_id": 22,
+      "action_ms": 3523,
+      "capture_ms": 149,
+      "total_ms": 3694,
+      "interrupted": false
+    },
+    {
+      "name": "Остановка после участка",
+      "payload": {
+        "keys": [
+          "space"
+        ],
+        "duration_ms": 1200
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1383,
+      "frame_age_ms": 51,
+      "sequence": 8352,
+      "connection_id": 22,
+      "action_ms": 1213,
+      "capture_ms": 151,
+      "total_ms": 1382,
+      "interrupted": false
+    },
+    {
+      "name": "Маршрут: второй участок",
+      "payload": {
+        "keys": [
+          "w"
+        ],
+        "duration_ms": 3500
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 3702,
+      "frame_age_ms": 65,
+      "sequence": 8645,
+      "connection_id": 23,
+      "action_ms": 3521,
+      "capture_ms": 162,
+      "total_ms": 3700,
+      "interrupted": false
+    },
+    {
+      "name": "Маршрут: остановка 2",
+      "payload": {
+        "keys": [
+          "space"
+        ],
+        "duration_ms": 1200
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1395,
+      "frame_age_ms": 57,
+      "sequence": 8663,
+      "connection_id": 23,
+      "action_ms": 1222,
+      "capture_ms": 167,
+      "total_ms": 1393,
+      "interrupted": false
+    },
+    {
+      "name": "Задний ход от опоры",
+      "payload": {
+        "keys": [
+          "s"
+        ],
+        "duration_ms": 1300
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1519,
+      "frame_age_ms": 60,
+      "sequence": 8949,
+      "connection_id": 24,
+      "action_ms": 1323,
+      "capture_ms": 154,
+      "total_ms": 1517,
+      "interrupted": false
+    },
+    {
+      "name": "Поворот вправо",
+      "payload": {
+        "keys": [
+          "w",
+          "d"
+        ],
+        "duration_ms": 850
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 1078,
+      "frame_age_ms": 59,
+      "sequence": 8963,
+      "connection_id": 24,
+      "action_ms": 894,
+      "capture_ms": 152,
+      "total_ms": 1075,
+      "interrupted": false
+    },
+    {
+      "name": "Остановка манёвра",
+      "payload": {
+        "keys": [
+          "space"
+        ],
+        "duration_ms": 800
+      },
+      "mimeType": "image/jpeg",
+      "roundtrip_ms": 999,
+      "frame_age_ms": 56,
+      "sequence": 8976,
+      "connection_id": 24,
+      "action_ms": 825,
+      "capture_ms": 156,
+      "total_ms": 997,
+      "interrupted": false
+    }
+  ],
+  "weapon_wheel": {
+    "observed": true,
+    "action_ms": 1217
+  },
+  "observations": [
+    "WASD directions visually confirmed",
+    "Run and jump animations observed",
+    "Weapon wheel and selected weapon ammo visible",
+    "F entered vehicle",
+    "Accelerator, left/right steering, braking and reverse tested",
+    "Walk approached wall and required correction",
+    "GPS route 196 m attempted; best remaining 99 m; collision with bridge support; route not completed"
+  ]
+}

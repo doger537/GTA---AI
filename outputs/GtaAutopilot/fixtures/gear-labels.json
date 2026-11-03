@@ -1,0 +1,455 @@
+{
+  "scope": "Visually labelled by assistant. Daytime frames from one trip; R samples share the same short reverse manoeuvre as template 000028. Not independent drives. No N/5/6/7/8 validation.",
+  "rows": [
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000050.jpg",
+      "speed": 14,
+      "gear": "1"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000115.jpg",
+      "speed": 57,
+      "gear": "2"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000180.jpg",
+      "speed": 109,
+      "gear": "3"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000245.jpg",
+      "speed": 130,
+      "gear": "4"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000310.jpg",
+      "speed": 66,
+      "gear": "2"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000375.jpg",
+      "speed": 73,
+      "gear": "3"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000440.jpg",
+      "speed": 105,
+      "gear": "4"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000505.jpg",
+      "speed": 73,
+      "gear": "2"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000570.jpg",
+      "speed": 9,
+      "gear": "1"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000635.jpg",
+      "speed": 94,
+      "gear": "2"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000700.jpg",
+      "speed": 98,
+      "gear": "3"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000765.jpg",
+      "speed": 33,
+      "gear": "2"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000830.jpg",
+      "speed": 102,
+      "gear": "3"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000895.jpg",
+      "speed": 96,
+      "gear": "3"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000960.jpg",
+      "speed": 51,
+      "gear": "2"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "001025.jpg",
+      "speed": 106,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000050.jpg",
+      "speed": 73,
+      "gear": "2"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000115.jpg",
+      "speed": 74,
+      "gear": "2"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000180.jpg",
+      "speed": 79,
+      "gear": "4"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000245.jpg",
+      "speed": 107,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000310.jpg",
+      "speed": 119,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000375.jpg",
+      "speed": 107,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000440.jpg",
+      "speed": 123,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000505.jpg",
+      "speed": 111,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000570.jpg",
+      "speed": 115,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000635.jpg",
+      "speed": 14,
+      "gear": "1"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000700.jpg",
+      "speed": 94,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000765.jpg",
+      "speed": 61,
+      "gear": "2"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000830.jpg",
+      "speed": 90,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000895.jpg",
+      "speed": 101,
+      "gear": "3"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000960.jpg",
+      "speed": 173,
+      "gear": "4"
+    },
+    {
+      "split": "pilot",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "001025.jpg",
+      "speed": 86,
+      "gear": "3"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000075.jpg",
+      "speed": 81,
+      "gear": "2"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000140.jpg",
+      "speed": 119,
+      "gear": "3"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000205.jpg",
+      "speed": 25,
+      "gear": "1"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000270.jpg",
+      "speed": 77,
+      "gear": "2"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000335.jpg",
+      "speed": 79,
+      "gear": "2"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000400.jpg",
+      "speed": 66,
+      "gear": "2"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000465.jpg",
+      "speed": 87,
+      "gear": "3"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000530.jpg",
+      "speed": 86,
+      "gear": "2"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000595.jpg",
+      "speed": 73,
+      "gear": "2"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000660.jpg",
+      "speed": 71,
+      "gear": "2"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000725.jpg",
+      "speed": 129,
+      "gear": "3"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000790.jpg",
+      "speed": 96,
+      "gear": "3"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000855.jpg",
+      "speed": 119,
+      "gear": "3"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000920.jpg",
+      "speed": 132,
+      "gear": "3"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000985.jpg",
+      "speed": 110,
+      "gear": "3"
+    },
+    {
+      "split": "holdout",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "001050.jpg",
+      "speed": 78,
+      "gear": "2"
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000028.jpg",
+      "gear": "R"
+    },
+    {
+      "split": "reverse_check",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000013.jpg",
+      "gear": "R"
+    },
+    {
+      "split": "reverse_check",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000044.jpg",
+      "gear": "R"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000095.jpg",
+      "gear": "3"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000160.jpg",
+      "gear": "4"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000225.jpg",
+      "gear": "2"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000290.jpg",
+      "gear": "3"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000355.jpg",
+      "gear": "2"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000420.jpg",
+      "gear": "3"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000485.jpg",
+      "gear": "3"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000550.jpg",
+      "gear": "3"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000615.jpg",
+      "gear": "1"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000680.jpg",
+      "gear": "2"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000745.jpg",
+      "gear": "3"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000810.jpg",
+      "gear": "3"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000875.jpg",
+      "gear": "2"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000940.jpg",
+      "gear": "4"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "001005.jpg",
+      "gear": "2"
+    },
+    {
+      "split": "gear_fresh",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "001070.jpg",
+      "gear": "3"
+    }
+  ]
+}
