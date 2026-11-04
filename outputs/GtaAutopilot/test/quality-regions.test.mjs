@@ -1,0 +1,4 @@
+import{strict as assert}from'node:assert';import{test}from'node:test';import{regionCells,masks}from'../evaluate-quality-regions.mjs';
+test('region labels use cell centers, and reject empty or invalid rectangles',()=>{assert.deepEqual(regionCells([.25,.25,.75,.75],4,4),[5,6,9,10]);assert.throws(()=>regionCells([0,0,.01,.01],4,4));assert.throws(()=>regionCells([.5,0,.2,1],4,4));});
+test('candidate free space excludes an obstacle even when raw road covers it',()=>{const p={gridWidth:4,gridHeight:4,road:Array(16).fill(1),obstacle:Array(16).fill(0),vehicles:[{x:0,y:0,w:.25,h:.25}]};const m=masks(p,true);assert.equal(m.raw[0],1);assert.equal(m.obstacle[0],1);assert.equal(m.road[0],0);});
+test('nonbinary and dimension-mismatched masks fail closed',()=>{assert.throws(()=>masks({gridWidth:1,gridHeight:1,road:[2],obstacle:[0],vehicles:[]},true));assert.throws(()=>masks({gridWidth:2,gridHeight:2,road:[1],obstacle:[0],vehicles:[]},false));});

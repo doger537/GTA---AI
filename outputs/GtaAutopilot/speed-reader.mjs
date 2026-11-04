@@ -4,15 +4,28 @@ import {fileURLToPath} from 'node:url';
 import {detectZeroDash} from './zero-dash.mjs';
 import {paddedSpeedConsensus,agreeSpeedViews} from './padded-speed.mjs';
 import {confirmSingleGlyph} from './single-glyph-speed.mjs';
+import {confirmSegmentedSpeed} from './segmented-speed.mjs';
+import {loadDigitModel,matchHudDigits,confirmDigitModel} from './hud-digit-model.mjs';
+
+export function speedTimingCheck(kmh,time_ms,previous){
+  if(!Number.isFinite(time_ms))return {valid:false,reason:'invalid_capture_time'};
+  if(!previous)return {valid:true};
+  const dt=(time_ms-previous.time_ms)/1000,change=Math.abs(kmh-previous.kmh),limit=Math.max(8,dt*36);
+  const details={dt_ms:dt*1000,change_kmh:change,limit_kmh:limit,previous_kmh:previous.kmh};
+  if(dt<=0)return {valid:false,reason:'non_increasing_capture_time',...details};
+  if(dt<=2&&change>limit)return {valid:false,reason:'temporal_speed_jump',...details};
+  return {valid:true,...details};
+}
 
 export class SpeedReader {
   static async create(roi){
     if(!roi || !['left','top','width','height'].every(k=>Number.isFinite(roi[k])&&roi[k]>=0) || roi.width<=0 || roi.height<=0)throw Error('Configure a real speedometer pixel ROI');
+    const digitModel=roi.native_digit_confirmation===true?await loadDigitModel():null;
     const worker=await createWorker('eng',1,{langPath:fileURLToPath(new URL('./models/ocr/',import.meta.url)),gzip:false,cacheMethod:'none'});
     await worker.setParameters({tessedit_char_whitelist:'0123456789.-',tessedit_pageseg_mode:PSM.SINGLE_LINE,user_defined_dpi:'150'});
-    return new SpeedReader(worker,roi);
+    return new SpeedReader(worker,roi,digitModel);
   }
-  constructor(worker,roi){this.worker=worker;this.roi=roi;this.previous=null;}
+  constructor(worker,roi,digitModel=null){this.worker=worker;this.roi=roi;this.digitModel=digitModel;this.previous=null;}
   async read(bytes,time_ms){
     const meta=await sharp(bytes).metadata();
     const roi=this.roi.normalized?{left:Math.round(this.roi.left*meta.width),top:Math.round(this.roi.top*meta.height),width:Math.round(this.roi.width*meta.width),height:Math.round(this.roi.height*meta.height)}:{left:this.roi.left,top:this.roi.top,width:this.roi.width,height:this.roi.height};
@@ -42,16 +55,27 @@ export class SpeedReader {
       if(glyph.valid&&[primary,secondary,...(padded?.candidates??[])].some(c=>c&&/^\d{1,3}$/.test(c.text)&&c.confidence>=75&&Number(c.text)!==7))glyph={...glyph,valid:false,reason:'conflicting_ocr'};
       if(glyph.valid)data={text:glyph.text,confidence:glyph.confidence};
     }
+    let segmented=null;
+    if(!dash&&this.roi.segmented_seven_confirmation===true&&!padded?.valid&&!glyph?.valid&&!(secondary&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text&&/^\d{1,3}(\.\d)?$/.test(primary.text))){
+      segmented=await confirmSegmentedSpeed(this.worker,source,roi.width,roi.height,[primary,secondary,...(padded?.candidates??[])]);
+      if(segmented.valid)data={text:segmented.text,confidence:segmented.confidence};
+    }
+    let font=null;
+    if(!dash&&this.digitModel&&!padded?.valid&&!glyph?.valid&&!segmented?.valid&&!(secondary&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text&&/^\d{1,3}(\.\d)?$/.test(primary.text))){
+      font=confirmDigitModel(matchHudDigits(source,roi.width,roi.height,this.digitModel),[primary,secondary,...(padded?.candidates??[])]);
+      if(font.valid)data={text:font.text,confidence:font.confidence};
+    }
     const text=data.text.trim(),numeric=/^\d{1,3}(\.\d)?$/.test(text)&&data.confidence>=75;
     const zero=!numeric&&(dash || (this.roi.dash_means_zero===true&&/^[-–—]$/.test(text)));
     const kmh=numeric?Number(text):zero?0:NaN;
     let valid=Number.isFinite(kmh)&&kmh<=200&&(zero||data.confidence>=75);
-    const consensus=!this.roi.require_consensus||zero||padded?.valid||glyph?.valid||(secondary&&/^\d{1,3}(\.\d)?$/.test(primary.text)&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text);
-    if(!consensus)valid=false;
-    if(valid&&this.previous){const dt=(time_ms-this.previous.time_ms)/1000;if(dt<=0 || (dt<=2&&Math.abs(kmh-this.previous.kmh)>Math.max(8,dt*36)))valid=false;}
+    let rejection_reason=valid?null:'unreadable_or_out_of_range_speed',temporal_check=null;
+    const consensus=!this.roi.require_consensus||zero||padded?.valid||glyph?.valid||segmented?.valid||font?.valid||(secondary&&/^\d{1,3}(\.\d)?$/.test(primary.text)&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text);
+    if(!consensus){valid=false;rejection_reason='ocr_unconfirmed';}
+    if(valid){temporal_check=speedTimingCheck(kmh,time_ms,this.previous);if(!temporal_check.valid){valid=false;rejection_reason=temporal_check.reason;}}
     if(valid)this.previous={kmh,time_ms};
     else if(this.previous&&time_ms-this.previous.time_ms>2000)this.previous=null;
-    return {valid,kmh:valid?kmh:null,speed_mps:valid?kmh/3.6:null,confidence:zero?null:data.confidence,text,source:!consensus?'ocr_unconfirmed':zero?'configured_zero_dash':glyph?.valid?'ocr_glyph_shape_confirmation':padded?.valid?'ocr_padded_consensus':'ocr',...(this.roi.require_consensus?{candidates:[primary,secondary]}:{}),...(padded?{padded_candidates:padded.candidates}:{}),...(glyph?{glyph_confirmation:glyph}:{}),time_ms};
+    return {valid,kmh:valid?kmh:null,speed_mps:valid?kmh/3.6:null,confidence:zero?null:data.confidence,text,source:!consensus?'ocr_unconfirmed':zero?'configured_zero_dash':font?.valid?'ocr_digit_model_confirmation':segmented?.valid?'ocr_segmented_seven':glyph?.valid?'ocr_glyph_shape_confirmation':padded?.valid?'ocr_padded_consensus':'ocr',rejection_reason,...(temporal_check?{temporal_check}:{}),...(this.roi.require_consensus?{candidates:[primary,secondary]}:{}),...(padded?{padded_candidates:padded.candidates}:{}),...(glyph?{glyph_confirmation:glyph}:{}),...(segmented?{segmented_confirmation:segmented}:{}),...(font?{digit_model_confirmation:font}:{}),time_ms};
   }
   async close(){await this.worker.terminate();}
 }

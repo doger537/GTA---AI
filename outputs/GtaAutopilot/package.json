@@ -5,9 +5,9 @@
   "type": "module",
   "description": "Experimental screenshot perception and controller; shadow mode by default",
   "scripts": {
-    "test": "node --test test/controller.test.mjs test/camera-profile.test.mjs test/live-control.test.mjs test/dataset.test.mjs test/bc.test.mjs test/control-model.test.mjs test/recording-bridge.test.mjs test/control-vision.test.mjs test/guidance.test.mjs test/temporal-perception.test.mjs test/integration.test.mjs test/optimization.test.mjs test/inference-session.test.mjs test/recording-readiness.test.mjs",
+    "test": "node --test test/controller.test.mjs test/camera-profile.test.mjs test/live-control.test.mjs test/dataset.test.mjs test/bc.test.mjs test/control-model.test.mjs test/recording-bridge.test.mjs test/control-vision.test.mjs test/guidance.test.mjs test/temporal-perception.test.mjs test/integration.test.mjs test/optimization.test.mjs test/inference-session.test.mjs test/recording-readiness.test.mjs test/perception-repair.test.mjs test/offline-perception.test.mjs test/quality-regions.test.mjs test/road-boundaries.test.mjs test/semantic-aspect.test.mjs test/inference-trace.test.mjs",
     "benchmark:road": "node benchmark-road.mjs",
-    "test:core": "node --test test/controller.test.mjs test/camera-profile.test.mjs test/live-control.test.mjs test/dataset.test.mjs test/bc.test.mjs test/control-model.test.mjs test/recording-bridge.test.mjs test/control-vision.test.mjs test/temporal-perception.test.mjs test/optimization.test.mjs test/recording-readiness.test.mjs"
+    "test:core": "node --test test/controller.test.mjs test/camera-profile.test.mjs test/live-control.test.mjs test/dataset.test.mjs test/bc.test.mjs test/control-model.test.mjs test/recording-bridge.test.mjs test/control-vision.test.mjs test/temporal-perception.test.mjs test/optimization.test.mjs test/recording-readiness.test.mjs test/offline-perception.test.mjs"
   },
   "dependencies": {
     "@tensorflow/tfjs": "4.22.0",

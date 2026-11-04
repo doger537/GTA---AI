@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {SemanticRoad} from './semantic-road.mjs';
 import {imageNetTensor} from './vision-tensor.mjs';
 import {createInferenceSession} from './inference-session.mjs';
+import {addRoadOcclusions} from './road-occlusion.mjs';
 
 export class Perception {
   static async load({size=640,provider='dml',roadModel='semantic',cameraProfile='unknown',sessionMode='worker'}={}) {
@@ -29,16 +30,6 @@ export class Perception {
     if(!road || !lanes || !det)throw new Error(`Unexpected model outputs: ${Object.keys(output)}`);
     const mask = new Uint8Array(n*n), lane = new Uint8Array(n*n);
     for(let i=0;i<n*n;i++){if(!semantic)mask[i]=road.data[n*n+i]>road.data[i]?1:0;lane[i]=lanes.data[n*n+i]>lanes.data[i]?1:0;}
-    if(semantic){
-      mask.fill(0);
-      for(let y=0;y<rh;y++)for(let x=0;x<rw;x++){
-        const sx=Math.min(semantic.gridWidth-1,Math.floor(x/rw*semantic.gridWidth)),sy=Math.min(semantic.gridHeight-1,Math.floor(y/rh*semantic.gridHeight));
-        const fx=x/rw,fy=y/rh;
-        // HUD is an overlay, never part of the road. Conservative exclusions.
-        const hud=(fx<.22&&fy>.78)||(fx>.78&&fy>.56);
-        mask[(top+y)*n+left+x]=!hud?semantic.road[sy*semantic.gridWidth+sx]:0;
-      }
-    }
     const boxes=[];const stride=det.dims.at(-1);
     for(let i=0;i<det.data.length;i+=stride){
       const d=det.data,score=d[i+4]*d[i+5];if(score<.35)continue;
@@ -60,6 +51,14 @@ export class Perception {
     }
     boxes.sort((a,b)=>b.score-a.score);const kept=[];
     for(const box of boxes){if(!kept.some(other=>iou(box,other)>.45))kept.push(box);if(kept.length>=30)break;}
+    const corridorSemantic=semantic?addRoadOcclusions(semantic,kept):null;
+    if(corridorSemantic){
+      for(let y=0;y<rh;y++)for(let x=0;x<rw;x++){
+        const sx=Math.min(semantic.gridWidth-1,Math.floor(x/rw*semantic.gridWidth)),sy=Math.min(semantic.gridHeight-1,Math.floor(y/rh*semantic.gridHeight));
+        const fx=x/rw,fy=y/rh,hud=(fx<.22&&fy>.78)||(fx>.78&&fy>.56);
+        mask[(top+y)*n+left+x]=!hud?corridorSemantic.corridorRoad[sy*semantic.gridWidth+sx]:0;
+      }
+    }
     const rows=[];
     for(const yf of [.48,.54,.60,.66]){
       const y=Math.round(top+yf*rh);let runs=[],start=-1;
@@ -75,7 +74,7 @@ export class Perception {
     const center=rows.length?rows.reduce((a,r)=>a+r.center,0)/rows.length:null;
     let roadPixels=0,total=0;
     for(let y=top+Math.round(rh*.48);y<top+Math.round(rh*.66);y++)for(let x=left+Math.round(rw*.3);x<left+Math.round(rw*.7);x++){roadPixels+=mask[y*n+x];total++;}
-    return {width:meta.width,height:meta.height,inference_ms:Math.round(performance.now()-started),rows,center,confidence,confidence_kind:'scanline_support_not_probability',road_model:semantic?'SegFormer B0 Cityscapes':'YOLOP',road_fraction:roadPixels/Math.max(total,1),vehicles:kept,mask,lane,semantic,letterbox:{n,top,left,rw,rh}};
+    return {width:meta.width,height:meta.height,inference_ms:Math.round(performance.now()-started),rows,center,confidence,confidence_kind:'scanline_support_not_probability',road_model:semantic?'SegFormer B0 Cityscapes':'YOLOP',road_fraction:roadPixels/Math.max(total,1),vehicles:kept,mask,lane,semantic:corridorSemantic,letterbox:{n,top,left,rw,rh}};
   }
   async overlay(bytes,p){
     const {n,top,left,rw,rh}=p.letterbox;

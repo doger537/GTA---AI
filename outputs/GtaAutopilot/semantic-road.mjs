@@ -14,21 +14,28 @@ export class SemanticRoad {
     return new SemanticRoad(session,size,config.id2label);
   }
   constructor(session,size,labels){this.session=session;this.size=size;this.labels=labels;}
-  async analyze(bytes,{cameraProfile='unknown',horizontalFlip=false}={}){
+  async analyze(bytes,{cameraProfile='unknown',horizontalFlip=false,resizeMode='square'}={}){
+    if(!['square','aspect'].includes(resizeMode))throw Error('Unknown semantic resize mode');
     const start=performance.now(),meta=await sharp(bytes).metadata(),n=this.size;
+    const inputWidth=resizeMode==='aspect'?Math.max(32,Math.round(n*meta.width/meta.height/32)*32):n;
+    if(resizeMode==='aspect'&&(!Number.isInteger(inputWidth)||inputWidth<32||inputWidth>2048))throw Error('Unsupported semantic input width');
     let pipeline=sharp(bytes).removeAlpha().toColourspace('srgb');if(horizontalFlip)pipeline=pipeline.flop();
-    const raw=await pipeline.resize(n,n,{fit:'fill',kernel:'linear'}).raw().toBuffer();
-    const tensor=imageNetTensor(raw,n*n);
-    const result=await this.session.run({pixel_values:new ort.Tensor('float32',tensor,[1,3,n,n])});
-    const logits=result.logits,[batch,classes,height,width]=logits.dims;
+    const raw=await pipeline.resize(inputWidth,n,{fit:'fill',kernel:'linear'}).raw().toBuffer();
+    const tensor=imageNetTensor(raw,inputWidth*n);
+    const result=await this.session.run({pixel_values:new ort.Tensor('float32',tensor,[1,3,n,inputWidth])});
+    const logits=result.logits,[batch,classes,height,nativeWidth]=logits.dims;
+    // Keep the established square image-space grid for downstream geometry.
+    // In aspect mode select native logit cells at destination cell centers.
+    const width=resizeMode==='aspect'?height:nativeWidth,nativeCount=nativeWidth*height;
     if(batch!==1||classes!==19)throw Error(`Unexpected logits: ${logits.dims}`);
     const count=width*height,labels=new Uint8Array(count),probability=new Float32Array(count);
     const road=new Uint8Array(count),rawRoad=new Uint8Array(count),sidewalk=new Uint8Array(count),obstacle=new Uint8Array(count);
     for(let i=0;i<count;i++){
-      const modelIndex=horizontalFlip?Math.floor(i/width)*width+(width-1-i%width):i;
+      const nativeX=Math.min(nativeWidth-1,Math.floor((i%width+.5)*nativeWidth/width));
+      const modelIndex=Math.floor(i/width)*nativeWidth+(horizontalFlip?nativeWidth-1-nativeX:nativeX);
       let best=-Infinity,id=0;
-      for(let c=0;c<classes;c++){const v=logits.data[c*count+modelIndex];if(v>best){best=v;id=c;}}
-      let sum=0;for(let c=0;c<classes;c++)sum+=Math.exp(logits.data[c*count+modelIndex]-best);
+      for(let c=0;c<classes;c++){const v=logits.data[c*nativeCount+modelIndex];if(v>best){best=v;id=c;}}
+      let sum=0;for(let c=0;c<classes;c++)sum+=Math.exp(logits.data[c*nativeCount+modelIndex]-best);
       labels[i]=id;probability[i]=1/sum;
       rawRoad[i]=id===0&&probability[i]>=.65?1:0;
       road[i]=rawRoad[i]&&!excludedByCamera((i%width+.5)/width,(Math.floor(i/width)+.5)/height,cameraProfile)?1:0;
@@ -40,7 +47,8 @@ export class SemanticRoad {
   async overlay(bytes,p){
     const rgba=Buffer.alloc(p.gridWidth*p.gridHeight*4);
     for(let i=0;i<p.labels.length;i++){
-      if(p.road[i]){rgba[i*4+1]=255;rgba[i*4+3]=85;}
+      if(p.road[i]&&p.corridorRoad&&!p.corridorRoad[i]){rgba[i*4]=255;rgba[i*4+2]=255;rgba[i*4+3]=140;}
+      else if(p.road[i]){rgba[i*4+1]=255;rgba[i*4+3]=85;}
       else if(p.sidewalk[i]){rgba[i*4]=220;rgba[i*4+2]=255;rgba[i*4+3]=110;}
       else if(p.obstacle[i]){rgba[i*4]=255;rgba[i*4+3]=100;}
     }

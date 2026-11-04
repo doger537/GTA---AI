@@ -1,17 +1,25 @@
-// Connected image-space path, not a lane, vehicle footprint or metric clearance.
-export function connectedRoadGeometry(p,intent){
+// Shared current-frame clearance mask. No interpolation or filling unknown road.
+export function corridorSafeGrid(p){
   const w=p.gridWidth,h=p.gridHeight;
-  if(!p.road||w<10||h<10||p.road.length!==w*h)return {valid:false,reason:'no_semantic_road'};
-  if(!['lane_follow','straight'].includes(intent))return {valid:false,reason:'turn_branch_not_resolved'};
+  const road=p.corridorRoad??p.road,obstacle=p.corridorObstacle??p.obstacle;
+  if(!road||w<10||h<10||road.length!==w*h||(obstacle&&obstacle.length!==w*h))return {valid:false,reason:'no_semantic_road'};
   const safe=new Uint8Array(w*h),radius=Math.max(1,Math.round(w/128));
   // Summed-area table preserves the exact rectangular obstacle footprint.
   let obstacleSum=null,stride=w+1;
-  if(p.obstacle){obstacleSum=new Uint32Array((w+1)*(h+1));for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=p.obstacle[y*w+x]?1:0;obstacleSum[(y+1)*stride+x+1]=obstacleSum[y*stride+x+1]+row;}}}
+  if(obstacle){obstacleSum=new Uint32Array((w+1)*(h+1));for(let y=0;y<h;y++){let row=0;for(let x=0;x<w;x++){row+=obstacle[y*w+x]?1:0;obstacleSum[(y+1)*stride+x+1]=obstacleSum[y*stride+x+1]+row;}}}
   for(let y=1;y<h-1;y++)for(let x=radius;x<w-radius;x++){
-    let clear=true;for(let dx=-radius;dx<=radius;dx++)if(!p.road[y*w+x+dx])clear=false;
+    let clear=true;for(let dx=-radius;dx<=radius;dx++)if(!road[y*w+x+dx])clear=false;
     if(obstacleSum){const top=Math.max(0,y-radius),bottom=Math.min(h,y+radius+1),left=x-radius,right=x+radius+1;if(obstacleSum[bottom*stride+right]-obstacleSum[top*stride+right]-obstacleSum[bottom*stride+left]+obstacleSum[top*stride+left])clear=false;}
     safe[y*w+x]=clear?1:0;
   }
+  return {valid:true,safe,w,h,radius};
+}
+
+// Connected image-space path, not a lane, vehicle footprint or metric clearance.
+export function connectedRoadGeometry(p,intent){
+  const prepared=corridorSafeGrid(p);if(!prepared.valid)return prepared;
+  if(!['lane_follow','straight'].includes(intent))return {valid:false,reason:'turn_branch_not_resolved'};
+  const {safe,w,h,radius}=prepared;
   // Start near the assumed forward image axis, above the configured ego footprint.
   let seed=null;
   for(let y=Math.floor(.54*h);y>=Math.floor(.42*h)&&!seed;y--){
