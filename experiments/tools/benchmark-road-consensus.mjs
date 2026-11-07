@@ -1,0 +1,12 @@
+import {readFile,writeFile,mkdir} from 'node:fs/promises';import sharp from 'sharp';import {fileURLToPath} from 'node:url';
+import {SemanticRoad} from '../../packages/perception/semantic-road.mjs';import {analyzeRoadConsensus} from '../../packages/perception/road-consensus.mjs';import {roadGeometry} from '../../packages/navigation/road-guidance.mjs';
+const probes=JSON.parse(await readFile(new URL('../../fixtures/corridor-probes.json',import.meta.url))),s=await SemanticRoad.load(),results=[];
+const dir=new URL(`../runs/road-consensus/${new Date().toISOString().replaceAll(':','-')}/`,import.meta.url);await mkdir(dir,{recursive:true});
+try{for(const c of probes.frames){const bytes=await readFile(new URL(`../recordings/${c.session}/${c.file}`,import.meta.url)),p=await analyzeRoadConsensus(s,bytes,{cameraProfile:'rear'}),before=roadGeometry(p.primary,'lane_follow'),after=roadGeometry(p.combined,'lane_follow');
+  const points=c.points.map(([x,y,expected])=>({x,y,expected,primary:s.sample(p.primary,x,y).road,combined:s.sample(p.combined,x,y).road}));
+  const markers=Buffer.from(`<svg width="${p.primary.width}" height="${p.primary.height}">${points.map((q,i)=>`<circle cx="${q.x*p.primary.width}" cy="${q.y*p.primary.height}" r="7" fill="${q.expected?'lime':'yellow'}" stroke="black"/><text x="${q.x*p.primary.width+8}" y="${q.y*p.primary.height}" fill="white" stroke="black" stroke-width=".4" font-size="18">${i}</text>`).join('')}</svg>`);
+  for(const key of ['primary','combined'])await sharp(await s.overlay(bytes,p[key])).composite([{input:markers}]).jpeg({quality:90}).toFile(fileURLToPath(new URL(c.session+'-'+c.file+'-'+key+'.jpg',dir)));
+  results.push({...c,points,before,after,primary_ms:p.primary.inference_ms,combined_ms:p.combined.inference_ms,disagreements:p.combined.road_view_disagreements});
+}}finally{await s.session.release();}
+const summary={};for(const key of ['primary','combined']){const r=results.flatMap(x=>x.points);summary[key]={correct:r.filter(x=>x[key]===x.expected).length,total:r.length,false_road:r.filter(x=>x[key]&&!x.expected).length,missed_road:r.filter(x=>!x[key]&&x.expected).length,paths:results.filter(x=>x[key==='primary'?'before':'after'].valid).length};}
+await writeFile(new URL('report.json',dir),JSON.stringify({scope:probes.scope,summary,results},null,2));console.log(JSON.stringify({file:fileURLToPath(new URL('report.json',dir)),summary},null,2));

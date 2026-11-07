@@ -1,0 +1,309 @@
+{
+  "scope": "Assistant visual point labels on development frames, not full segmentation ground truth or independent driving data.",
+  "frames": [
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000050.jpg",
+      "points": [
+        [
+          0.5,
+          0.45,
+          true
+        ],
+        [
+          0.7,
+          0.55,
+          true
+        ],
+        [
+          0.3,
+          0.55,
+          true
+        ],
+        [
+          0.5,
+          0.1,
+          false
+        ],
+        [
+          0.8,
+          0.24,
+          false
+        ],
+        [
+          0.55,
+          0.7,
+          false
+        ]
+      ]
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000310.jpg",
+      "points": [
+        [
+          0.45,
+          0.45,
+          true
+        ],
+        [
+          0.55,
+          0.5,
+          true
+        ],
+        [
+          0.75,
+          0.55,
+          true
+        ],
+        [
+          0.8,
+          0.2,
+          false
+        ],
+        [
+          0.5,
+          0.75,
+          false
+        ],
+        [
+          0.35,
+          0.05,
+          false
+        ]
+      ]
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000570.jpg",
+      "points": [
+        [
+          0.3,
+          0.7,
+          true
+        ],
+        [
+          0.3,
+          0.55,
+          true
+        ],
+        [
+          0.35,
+          0.6,
+          true
+        ],
+        [
+          0.52,
+          0.7,
+          false
+        ],
+        [
+          0.8,
+          0.3,
+          false
+        ],
+        [
+          0.4,
+          0.1,
+          false
+        ]
+      ]
+    },
+    {
+      "split": "dev",
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000830.jpg",
+      "points": [
+        [
+          0.3,
+          0.7,
+          true
+        ],
+        [
+          0.7,
+          0.75,
+          true
+        ],
+        [
+          0.5,
+          0.75,
+          false
+        ],
+        [
+          0.8,
+          0.35,
+          false
+        ],
+        [
+          0.1,
+          0.15,
+          false
+        ]
+      ]
+    },
+    {
+      "split": "check",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000075.jpg",
+      "points": [
+        [
+          0.65,
+          0.7,
+          true
+        ],
+        [
+          0.7,
+          0.55,
+          true
+        ],
+        [
+          0.45,
+          0.75,
+          false
+        ],
+        [
+          0.15,
+          0.8,
+          false
+        ],
+        [
+          0.25,
+          0.6,
+          false
+        ]
+      ]
+    },
+    {
+      "split": "check",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000335.jpg",
+      "points": [
+        [
+          0.3,
+          0.7,
+          true
+        ],
+        [
+          0.45,
+          0.5,
+          true
+        ],
+        [
+          0.65,
+          0.65,
+          true
+        ],
+        [
+          0.35,
+          0.05,
+          false
+        ],
+        [
+          0.7,
+          0.45,
+          false
+        ],
+        [
+          0.45,
+          0.75,
+          false
+        ]
+      ]
+    },
+    {
+      "split": "check",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000595.jpg",
+      "points": [
+        [
+          0.25,
+          0.7,
+          true
+        ],
+        [
+          0.5,
+          0.45,
+          true
+        ],
+        [
+          0.35,
+          0.55,
+          true
+        ],
+        [
+          0.45,
+          0.75,
+          false
+        ],
+        [
+          0.8,
+          0.2,
+          false
+        ],
+        [
+          0.8,
+          0.65,
+          false
+        ]
+      ]
+    },
+    {
+      "split": "check",
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000855.jpg",
+      "points": [
+        [
+          0.45,
+          0.5,
+          true
+        ],
+        [
+          0.4,
+          0.6,
+          true
+        ],
+        [
+          0.5,
+          0.75,
+          false
+        ],
+        [
+          0.5,
+          0.15,
+          false
+        ],
+        [
+          0.85,
+          0.4,
+          false
+        ]
+      ]
+    }
+  ],
+  "excluded_points": [
+    {
+      "session": "2026-11-01T17-32-01-342Z",
+      "file": "000830.jpg",
+      "x": 0.5,
+      "y": 0.5,
+      "reason": "After inspecting full-size markers: near vehicle edge/occlusion, ambiguous ground truth. Removed without algorithm changes."
+    },
+    {
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000075.jpg",
+      "x": 0.5,
+      "y": 0.5,
+      "reason": "After inspecting full-size markers: near vehicle edge/occlusion, ambiguous ground truth. Removed without algorithm changes."
+    },
+    {
+      "session": "2026-11-02T07-43-54-725Z",
+      "file": "000855.jpg",
+      "x": 0.65,
+      "y": 0.7,
+      "reason": "After inspecting full-size markers: near vehicle edge/occlusion, ambiguous ground truth. Removed without algorithm changes."
+    }
+  ]
+}

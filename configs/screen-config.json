@@ -1,0 +1,15 @@
+{
+  "speed_roi": {
+    "normalized": true,
+    "dash_means_zero": true,
+    "require_consensus": true,
+    "zero_needle":{"center_x":0.872,"center_y":0.770,"radius":0.07,"angle_min":125,"angle_max":151},
+    "left": 0.8455882353,
+    "top": 0.8329979879,
+    "width": 0.0252100840,
+    "height": 0.0342052314
+  },
+  "camera_calibrated": false,
+  "braking_calibrated": false,
+  "note": "ROI measured from a 1904x994 client screenshot. Numbers only; excludes gear and KPH label. Geometry and braking still require measurement."
+}

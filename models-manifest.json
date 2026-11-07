@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "paths_relative_to": "repository root",
+  "purpose": "Integrity of installed assets; does not authorize promotion or establish licensing.",
+  "artifacts": [
+    {
+      "id": "yolop-640",
+      "path": "packages/perception/models/yolop-640.onnx",
+      "required": true,
+      "bytes": 35902568,
+      "sha256": "cd66a3e0087a7258ae07768cc02cb742eed93865727ae4c9baf969b8fa190696",
+      "upstream_reference": "https://github.com/hustvl/YOLOP",
+      "provenance": "MIT notice accompanies local model assets; exact ONNX export provenance is not recorded"
+    },
+    {
+      "id": "yolop-320",
+      "path": "packages/perception/models/yolop-320.onnx",
+      "required": false,
+      "bytes": 31817335,
+      "sha256": "86d6e8b6dfdef195c061e9bcad82d9487bb5ee1ac4a1cf9a3dc4736657a07369",
+      "upstream_reference": "https://github.com/hustvl/YOLOP",
+      "provenance": "MIT notice accompanies local model assets; exact ONNX export provenance is not recorded"
+    },
+    {
+      "id": "segformer-cityscapes",
+      "path": "packages/perception/models/segformer-cityscapes.onnx",
+      "required": true,
+      "bytes": 15200774,
+      "sha256": "ffd5ceb33f7c7a969bc69d3ad7ab06017de15c42085e7ed10be8ed8d23b10fec",
+      "upstream_reference": "https://huggingface.co/Xenova/segformer-b0-finetuned-cityscapes-512-1024",
+      "provenance": "See accompanying local model card; upstream reference does not establish exact export provenance"
+    },
+    {
+      "id": "ocr-eng",
+      "path": "packages/perception/models/ocr/eng.traineddata",
+      "required": true,
+      "bytes": 4113088,
+      "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "upstream_reference": null,
+      "provenance": "Exact download source and weight licensing have not been recorded locally"
+    },
+    {
+      "id": "segformer-labels",
+      "path": "configs/segformer-config.json",
+      "required": true,
+      "bytes": 1761,
+      "sha256": "630d7fad4d4899bc1278dcb64958e4abb2d5c9044379f1b219b30ef0fe0f09cb",
+      "upstream_reference": null,
+      "provenance": "Configuration preserved byte-for-byte from the active local model assets"
+    },
+    {
+      "id": "gear-templates",
+      "path": "configs/gear-templates.json",
+      "required": true,
+      "bytes": 67127,
+      "sha256": "7ad663cf4c8f7f25b559ea550b405aa3eb6f5df4ac747e5d04f39607eaeb1564",
+      "upstream_reference": null,
+      "provenance": "Local project templates preserved byte-for-byte"
+    },
+    {
+      "id": "hud-digit-prototypes",
+      "path": "configs/hud-digit-prototypes.json",
+      "required": false,
+      "bytes": 27219,
+      "sha256": "1c4e346e5455782380bfeb9cb75b9280c1b1983abd860c3eb7abc1d0d2e4eb0b",
+      "upstream_reference": null,
+      "provenance": "Local experimental model; disabled by default"
+    }
+  ]
+}

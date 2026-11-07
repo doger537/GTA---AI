@@ -1,4 +1,2 @@
 @echo off
-cd /d "%~dp0"
-node record-observations.mjs --seconds=120 --role=validation --camera=rear
-pause
+call "%~dp0..\..\apps\gta-control\launchers\Record-Motion-Validation.cmd" %*

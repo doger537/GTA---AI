@@ -1,0 +1,52 @@
+{
+  "session": "2026-11-03T07-08-56.123Z",
+  "role": "development",
+  "scope": "Native speed ROI crops from manually reviewed development trip, used to select this fallback. Not an independent validation set.",
+  "rows": [
+    {
+      "file": "000044.png",
+      "speed": 33,
+      "repair_expected": false
+    },
+    {
+      "file": "000088.png",
+      "speed": 105,
+      "repair_expected": false
+    },
+    {
+      "file": "000333.png",
+      "speed": 78,
+      "repair_expected": true
+    },
+    {
+      "file": "000399.png",
+      "speed": 87,
+      "repair_expected": true
+    },
+    {
+      "file": "000532.png",
+      "speed": 74,
+      "repair_expected": true
+    },
+    {
+      "file": "000777.png",
+      "speed": 127,
+      "repair_expected": false
+    },
+    {
+      "file": "000821.png",
+      "speed": 74,
+      "repair_expected": true
+    },
+    {
+      "file": "000843.png",
+      "speed": 73,
+      "repair_expected": true
+    },
+    {
+      "file": "000866.png",
+      "speed": 72,
+      "repair_expected": true
+    }
+  ]
+}

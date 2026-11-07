@@ -1,13 +1,3 @@
-import {test} from 'node:test';
-import assert from 'node:assert/strict';
-import {Controller} from '../controller.mjs';
-const sensor=(extra={})=>({time_ms:1000,frame_age_ms:100,camera_calibrated:true,speed_valid:true,speed_mps:4,braking_mps2:4,road_confidence:1,paths:[{offset_m:0,heading_error_rad:0,curvature:0,clearance_m:100,confidence:1}],obstacles:[],...extra});
-test('No valid speed or calibration means no acceleration',()=>{for(const e of [{speed_valid:false},{camera_calibrated:false},{braking_mps2:NaN}]){const c=new Controller().update(sensor(e));assert.equal(c.throttle,0);assert.equal(c.brake,1);}});
-test('Stale frame and uncertain road trigger stop',()=>{for(const e of [{frame_age_ms:400},{road_confidence:.5}])assert.equal(new Controller().update(sensor(e)).state,'STOP');});
-test('Stopping distance increases quadratically with speed',()=>{const a=new Controller().update(sensor({speed_mps:4})),b=new Controller().update(sensor({speed_mps:8}));assert.ok(b.stopping_distance_m>a.stopping_distance_m*1.8);});
-test('Obstacle across every path causes braking',()=>{assert.equal(new Controller().update(sensor({paths:[{offset_m:0,heading_error_rad:0,curvature:0,clearance_m:3,confidence:1}]})).reason,'no_clear_corridor');});
-test('Free side corridor chosen instead of blocked center',()=>{const s=sensor();s.paths[0].clearance_m=2;s.paths.push({offset_m:1.5,heading_error_rad:.05,curvature:.01,clearance_m:40,confidence:1});assert.equal(new Controller().update(s).chosen_offset_m,1.5);});
-test('Rapidly approaching vehicle triggers emergency stop',()=>{assert.equal(new Controller().update(sensor({obstacles:[{lateral_m:0,distance_m:10,closing_mps:6}]})).reason,'collision_time_low');});
-test('Steering is slew-rate limited',()=>{const c=new Controller();const s=sensor();s.paths[0].offset_m=2;const a=c.update(s),b=c.update({...s,time_ms:1100});assert.ok(Math.abs(a.steer)<=.070001);assert.ok(Math.abs(b.steer-a.steer)<=.070001);});
-test('Missing confidence and invalid obstacle data fail closed',()=>{for(const e of [{road_confidence:undefined},{obstacles:undefined},{obstacles:[{distance_m:NaN}]}])assert.equal(new Controller().update(sensor(e)).state,'STOP');});
-test('Path with NaN heading cannot authorize throttle',()=>{const s=sensor();s.paths[0].heading_error_rad=NaN;assert.equal(new Controller().update(s).throttle,0);});
+// Compatibility only; canonical implementation: tests/javascript/controller.test.mjs
+import "../../../packages/protocols/legacy-entry.mjs?from=..%2F..%2Foutputs%2FGtaAutopilot%2Ftest%2Fcontroller.test.mjs&to=..%2F..%2Ftests%2Fjavascript%2Fcontroller.test.mjs";
+export * from "../../../tests/javascript/controller.test.mjs";

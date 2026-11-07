@@ -2,7 +2,15 @@
 
 Экспериментальный автопилот GTA V для Windows, работающий по изображению экрана. Цель — плавное аналоговое управление и движение к установленной GPS-метке. **Самостоятельная езда до назначения пока не подтверждена.**
 
-Обновлено **4 ноября 2026**. Краткое состояние — [CURRENT-STATUS.md](CURRENT-STATUS.md), зависимости этапов и критерии проверки — [DEVELOPMENT-PLAN.md](DEVELOPMENT-PLAN.md).
+Обновлено **7 ноября 2026**. Краткое состояние — [CURRENT-STATUS.md](CURRENT-STATUS.md), зависимости этапов и критерии проверки — [DEVELOPMENT-PLAN.md](DEVELOPMENT-PLAN.md).
+
+## Последнее обновление
+
+- Проект перенесён в монорепозиторий: приложение в `apps/gta-control`, библиотеки в пяти `packages`, обучение и эксперименты отдельно. Старые точки входа сохранены как переходники. [Описание переноса](docs/reports/RESTRUCTURE-RESULT.md).
+- Добавлен общий владелец клавиатуры/геймпада с процессной блокировкой, отзывом разрешения и явным повторным включением. [Контракт владения](docs/reports/INPUT-OWNERSHIP-RESULT.md).
+- Срок решения проходит от исходного кадра через Node.js и Python до проверки C#; очередь и повторная отправка не создают новую аренду. [Контракт срока решения](docs/reports/DECISION-DEADLINE-RESULT.md).
+
+Проверки выполнены офлайн: **159 JavaScript, 36 Python и 16 групп C# self-test прошли**. Следующий этап — общий `drive-safety-gate` и подтверждённая калибровка; автономный режим `trial --drive` остаётся отключённым.
 
 ## Что работает и что ещё проверяется
 
@@ -12,11 +20,36 @@
 | Зрение ONNX Runtime / DirectML | Работает на GPU Windows, вынесено в workers; допуск GPU-запусков последовательный |
 | Скорость и передача | OCR и дополнительные проверки; остаются отказы, особенно в целевом диапазоне малых скоростей |
 | Дорога и препятствия | SegFormer B0 + дополнительные боксы YOLOP; найдены ошибки на асфальте и проблемы связности |
+| Срок решения до Python | Реализован: source и фиксированный capture-clock deadline проходят до backend; [проверки](docs/reports/DECISION-DEADLINE-RESULT.md) |
+| Общий владелец ввода | Реализован и проверен офлайн: одно разрешение keyboard/gamepad, process guard, отзыв и явный re-arm; [отчёт](docs/reports/INPUT-OWNERSHIP-RESULT.md) |
 | Аналоговый исполнитель | Постоянный Python-процесс, ограниченные команды и watchdog; это не доказательство качества езды |
 | GTA YOLOv8l-seg / альтернативные модели | Офлайн-кандидаты; экспорт ONNX и сравнение выполнены, рабочие модели не заменены |
 | SegFormer aspect и intra-op1 | Проверены офлайн, в рабочий профиль не включены |
 | Камера, габариты и тормозной путь | Полной калибровки нет |
 | GPS, выбор поворота и прибытие | Полного контура нет; старые свободные поездки не содержат GPS-намерений |
+
+## Структура репозитория
+
+```text
+GTA---AI/
+├── apps/gta-control/
+├── packages/
+│   ├── perception/
+│   ├── navigation/
+│   ├── control/
+│   ├── actuation/
+│   └── protocols/
+├── training/
+├── experiments/
+├── tests/
+├── fixtures/
+├── configs/
+├── docs/
+├── models-manifest.json
+└── .github/workflows/
+```
+
+Канонические исходники находятся в этих каталогах; `outputs/` сохраняет переходники для прежних команд и импортов. Команды ниже запускаются из корня. [Границы пакетов, хранение данных и совместимость](docs/ARCHITECTURE.md).
 
 ## Архитектура
 
@@ -42,21 +75,30 @@ GTA на экране
 
 | Эксперимент | Результат | Граница вывода |
 |---|---|---|
-| [GTA ONNX / DirectML](outputs/GtaAutopilot/GTA-ONNX-RESULT.md) | Полный анализ p50/p95:104/115мс; итоговые сетки совпали40/40 | Другая модель-кандидат, без нагрузки игры/OCR/захвата |
-| [Новая validation-запись](outputs/GtaAutopilot/VALIDATION-CAPTURE-RESULT.md) | 845 наблюдений; на40 кадрах32 верные принятые скорости,8 отказов, передача40/40 | Скорости1–12км/ч покрыты недостаточно |
-| [Пустынная дорога](outputs/GtaAutopilot/DESERT-VALIDATION-RESULT.md) | GTA-кандидат лучше на отмеченном асфальте, baseline — на грунтовых/смешанных проездах | Частичная разметка; ни одна модель не допущена к езде |
-| [Aspect](outputs/GtaAutopilot/SEMANTIC-ASPECT-RESULT.md) | На40developmentкадрах найдено5связных путей вместо2 | Не успехи проезда; есть регрессии и дополнительная стоимость |
-| [GTA/FPS A1/B1/B2/A2](outputs/GtaAutopilot/GAME-LOAD-AB-RESULT.md) | p95aspect349→200/199→234мс;1280 совпадений эталонов | Настройки подтверждены пользователем, фактическийFPS не измерен; постоянные30FPS не назначены |
-| [Один поток SegFormer](outputs/GtaAutopilot/THREAD-OPTIONS-RESULT.md) |320 совпадений; умеренное снижение CPU/медианы, p95неустойчив | Изолированный диагностический вариант, не рабочая настройка |
+| [Геометрия миникарты](docs/reports/MINIMAP-ROUTE-RESULT.md) | Трассировка заданной линии с отказом на развилках/неизвестном курсе | Только синтетика; RGB-распознавание GPS и навигационные команды ещё не реализованы |
+| [Подготовка аналоговой пробы](docs/reports/CALIBRATION-READINESS-RESULT.md) | Проверка свежести/порядка трёх кадров и соответствия OCR перед arm | Логический допуск проверен офлайн; физических проб и новой калибровки нет |
+| [Нулевая скорость по изображению](docs/reports/ZERO-DASH-GUARD-RESULT.md) | OCR-прочерк без shape-подтверждения больше не означает остановку;360 ответов HUD сохранены | Исправление воспроизведённой ошибки логики; не полная оценка ложных нулей/диапазона1–12км/ч |
+| [Параллельная подготовка](docs/reports/PARALLEL-ENCODING-RESULT.md) | Подготовка изображений p5030→19–20мс, p9537→26мс;414 точных совпадений | Офлайн без захвата/OCR/игры; код входит в проверенную C#-сборку, флаг выключен по умолчанию |
+| [Получение кадра по этапам](docs/reports/ACQUISITION-PROFILE-RESULT.md) | Захват26–37мс, подготовка/resize20мс, JPEG4,5мс, миникарта14–15мс | 200 наблюдений одной ночной сцены; измерение, не ускорение; HTTP-тело имеет отдельные хвосты |
+| [Один decode JPEG](docs/reports/SINGLE-DECODE-RESULT.md) | 214/214 точные тензоры/выходы; p95 A218/189мс, B224/160мс | Реализован, устойчивое ускорение не подтверждено; опция default=false, ограничена форматом дорожного JPEG |
+| [Пассивно с GTA и OCR](docs/reports/PASSIVE-TRANSFER-RESULT.md) | p95 возраста A324/312→B304/304мс;160/160 паритет повторов | Одна дневная сцена,160наблюдений, старше450мс0; FPS не измерен, не проверка езды |
+| [Передача выходов worker](docs/reports/OUTPUT-TRANSFER-RESULT.md) | p50 полного анализа77–78→73мс; все выходы совпали | Офлайн без GTA/OCR; отдельная опция, default=false, не доказательство причины70мс Running |
+| [Абляция 640/320/без SegFormer](docs/reports/PERCEPTION-ABLATION-RESULT.md) | p95:640+Seg119/91мс,320+Seg56/58мс,320-only23/21мс | Офлайн без GTA/OCR; оба ускоренных кандидата отклонены по качеству машин/дороги |
+| [GTA ONNX / DirectML](docs/reports/GTA-ONNX-RESULT.md) | Полный анализ p50/p95:104/115мс; итоговые сетки совпали40/40 | Другая модель-кандидат, без нагрузки игры/OCR/захвата |
+| [Новая validation-запись](docs/reports/VALIDATION-CAPTURE-RESULT.md) | 845 наблюдений; на40 кадрах32 верные принятые скорости,8 отказов, передача40/40 | Скорости1–12км/ч покрыты недостаточно |
+| [Пустынная дорога](docs/reports/DESERT-VALIDATION-RESULT.md) | GTA-кандидат лучше на отмеченном асфальте, baseline — на грунтовых/смешанных проездах | Частичная разметка; ни одна модель не допущена к езде |
+| [Aspect](docs/reports/SEMANTIC-ASPECT-RESULT.md) | На40developmentкадрах найдено5связных путей вместо2 | Не успехи проезда; есть регрессии и дополнительная стоимость |
+| [GTA/FPS A1/B1/B2/A2](docs/reports/GAME-LOAD-AB-RESULT.md) | p95aspect349→200/199→234мс;1280 совпадений эталонов | Настройки подтверждены пользователем, фактическийFPS не измерен; постоянные30FPS не назначены |
+| [Один поток SegFormer](docs/reports/THREAD-OPTIONS-RESULT.md) |320 совпадений; умеренное снижение CPU/медианы, p95неустойчив | Изолированный диагностический вариант, не рабочая настройка |
 
 Числа из разных строк не являются прямым сравнением скорости: отличаются модели, нагрузка, наличие OCR и охват стадий.40 кадров с повторами — не сотни независимых сцен. Показатели24/40,3/40 из ранних отчётов относятся к исторической поездке.
 
 ### Что выяснили о задержках
 
-- В редких медленных кадрах83–91%времени находились внутри native ORT run, который включает вычисления, передачи и ожидания. [Трасса](outputs/GtaAutopilot/TAIL-TRACE-RESULT.md).
-- У YOLOP в записанном ORT-профиле CPU-узлов нет. У SegFormer они обслуживают небольшие int64-векторы размеров; MatMul/LayerNormalization/Resize находятся на DML. [Профиль узлов и стадий](outputs/GtaAutopilot/ORT-NODE-PROFILE-RESULT.md).
-- В ETW обнаружено ожидание ORT через `WaitForSingleObject`. Это не доказательство бесполезного spinning или очереди WDDM: ожидание может перекрывать полезную GPU-работу. [Разбор стеков](outputs/GtaAutopilot/ETW-WAIT-STACKS-RESULT.md).
-- GPU-события в новом boundedETL не получены, а CPU-кольцо сохранило только конец истории. Точное разделение GPU/copy/queue **ещё не выполнено**. [Ограничения ETW](outputs/GtaAutopilot/ETW-BOUNDED-RESULT.md).
+- В редких медленных кадрах83–91%времени находились внутри native ORT run, который включает вычисления, передачи и ожидания. [Трасса](docs/reports/TAIL-TRACE-RESULT.md).
+- У YOLOP в записанном ORT-профиле CPU-узлов нет. У SegFormer они обслуживают небольшие int64-векторы размеров; MatMul/LayerNormalization/Resize находятся на DML. [Профиль узлов и стадий](docs/reports/ORT-NODE-PROFILE-RESULT.md).
+- В ETW обнаружено ожидание ORT через `WaitForSingleObject`. Это не доказательство бесполезного spinning или очереди WDDM: ожидание может перекрывать полезную GPU-работу. [Разбор стеков](docs/reports/ETW-WAIT-STACKS-RESULT.md).
+- GPU-события в новом boundedETL не получены, а CPU-кольцо сохранило только конец истории. Точное разделение GPU/copy/queue **ещё не выполнено**. [Ограничения ETW](docs/reports/ETW-BOUNDED-RESULT.md).
 
 ## Подготовка из чистого клона
 
@@ -64,7 +106,7 @@ GTA на экране
 
 ```powershell
 git clone https://github.com/doger537/GTA---AI.git
-cd GTA---AI/outputs/GtaAutopilot
+cd GTA---AI
 npm ci
 npm run test:core
 ```
@@ -73,43 +115,57 @@ npm run test:core
 
 ```powershell
 npm test
-training-env/Scripts/python.exe -m unittest test_ablation.py test_integration.py
+npm run test:python
 ```
 
-При подготовке этой публикации полный набор прошёл: **130 JS и16 Python**. Команды тестов не являются запуском автопилота.
+После доведения срока решения до Python 7 ноября: **159 JS, 36 Python и 16 групп C# self-test прошли**. Хеши активов: `npm run models:verify`. Команды тестов не являются запуском автопилота.
+
+| Команда из корня | Что проверяет |
+|---|---|
+| `npm run test:core` | 97 тестов базовой логики и включённых fixtures; без моделей, записей и игры |
+| `npm test` | 159 тестов, включая локальные ONNX/OCR-активы и Python mock-процесс |
+| `npm run test:python` | 36 unittest в подготовленном `training/training-env` |
+| `python -m unittest tests.python.test_ownership tests.python.test_decision_deadline` | 20 проверок владения/сроков на стандартной библиотеке; процессные проверки Windows пропускаются на других ОС |
+| `npm run models:verify` | Размеры и SHA-256 установленных активов по `models-manifest.json` |
+
+[GitHub Actions](.github/workflows/ci.yml) запускает core на Linux/Windows, сборку/self-test C# и stdlib-проверки Python на Windows. Полный vision-набор требует локальных активов и не входит в облачный CI. Отдельный [аудит зависимостей](.github/workflows/security.yml) сообщает о ранее найденных high-уязвимостях; их исправление ещё не завершено. Зелёный security-аудит не заявляется.
+
+Перед публикацией установка `npm ci` и все 97 core-тестов также прошли в отдельной копии подготовленного коммита, без прежних зависимостей, моделей и локальной памяти проекта.
 
 ### Модели и локальные данные
 
-Большие активы в Git не входят. Для основного зрения нужны в `outputs/GtaAutopilot/models/`: `yolop-640.onnx`, `segformer-cityscapes.onnx`, `segformer-config.json`, `gear-templates.json`, `ocr/eng.traineddata`. Для отдельных сравнений нужен `yolop-320.onnx`. Небольшие конфигурации-образцы лежат в `config/`, модель цифр — `config/hud-digit-prototypes.json`; она выключена в обычном HUD-профиле.
+Большие активы в Git не входят. Для основного зрения нужны в `packages/perception/models/`: `yolop-640.onnx`, `segformer-cityscapes.onnx`, `ocr/eng.traineddata`. Активные конфигурации `segformer-config.json` и `gear-templates.json` находятся в `configs/`. Для отдельных сравнений нужен `yolop-320.onnx`. Небольшие конфигурации-образцы лежат в `configs/`, модель цифр — `configs/hud-digit-prototypes.json`; она выключена в обычном HUD-профиле.
 
-Источники базовых весов: [YOLOP](https://github.com/hustvl/YOLOP), [SegFormer B0 Cityscapes](https://huggingface.co/Xenova/segformer-b0-finetuned-cityscapes-1024-1024). Проверяйте соответствие экспортов, выходов и лицензий; случайный ONNX с похожим именем не гарантирует совместимости. Источники дополнительных моделей — [обзор](outputs/GtaAutopilot/EXTERNAL-MODELS-REVIEW.md), сторонние notices — `outputs/GtaAutopilot/third-party/`.
+Источники базовых весов: [YOLOP](https://github.com/hustvl/YOLOP), [SegFormer B0 Cityscapes](https://huggingface.co/Xenova/segformer-b0-finetuned-cityscapes-512-1024). Проверяйте соответствие экспортов, выходов и лицензий; случайный ONNX с похожим именем не гарантирует совместимости. Источники дополнительных моделей — [обзор](docs/reports/EXTERNAL-MODELS-REVIEW.md), сторонние notices — `docs/third-party/`.
 
-Python-окружение создаётся отдельно в `outputs/GtaAutopilot/training-env`; зависимости разделены по `requirements-*.txt`. Драйвер/реальный геймпад не нужны для офлайн-проверки. [Установка аналогового backend](outputs/GtaAutopilot/GAMEPAD-INSTALLATION.md).
+Python-окружение создаётся отдельно в `training/training-env`; зависимости разделены по `training/requirements-*.txt`. Драйвер/реальный геймпад не нужны для офлайн-проверки. [Установка аналогового backend](docs/reports/GAMEPAD-INSTALLATION.md).
 
 ### Мост и пассивная запись
 
 Из корня репозитория:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File outputs/GtaControl/Build.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File apps/gta-control/Build.ps1
 ```
 
-После сборки выполнить `GtaControl.exe --self-test REPORT_PATH`; затем для работы с игрой — `outputs/GtaControl/Start.cmd`. Свежий локальный `connection.json` создаётся мостом, содержит приватный токен и исключён из Git. Это loopback-сервис, не открытый сетевой сервер. Подробности API — [GtaControl](outputs/GtaControl/README.md).
+После сборки выполнить `apps/gta-control/GtaControl.exe --self-test REPORT_PATH`; затем для работы с игрой — `apps/gta-control/Start.cmd`. Свежий локальный `apps/gta-control/connection.json` создаётся мостом, содержит приватный токен и исключён из Git. Это loopback-сервис, не открытый сетевой сервер. Подробности API — [GtaControl](docs/gta-control.md).
 
-Для пассивных записей использовать `Record-Motion-Development.cmd` и отдельно `Record-Motion-Validation.cmd`. Водит человек; роли поездок сохраняются. Переход к испытаниям управления требует проверки текущего кадра, состояния машины, ракурса и зависимости этапов плана.
+Для пассивных записей использовать `apps/gta-control/launchers/Record-Motion-Development.cmd` и отдельно `apps/gta-control/launchers/Record-Motion-Validation.cmd`. Водит человек; роли поездок сохраняются. Переход к испытаниям управления требует проверки текущего кадра, состояния машины, ракурса и зависимости этапов плана.
 
 ## Ограничения управления
+
+`trial --drive` отключён до реализации общего строгого допуска и подтверждённой калибровки; trial теперь только shadow. API LiveActuator/AnalogActuator требует метаданные исходного кадра вторым аргументом update. Общий keyboard/gamepad owner и явный re-arm реализованы: [протокол и проверки](docs/reports/INPUT-OWNERSHIP-RESULT.md). Фиксированный deadline исходного решения доведён до реальных Python-команд: [контракт и проверки](docs/reports/DECISION-DEADLINE-RESULT.md). Общий drive-safety-gate и фактическая калибровка остаются открытыми. [Исправления и оставшиеся пункты внешнего аудита](docs/reports/AUDIT-REMEDIATION.md).
 
 F8, фокус окна, generation и watchdog сохраняются. Срок аналоговой команды не более250 мс, предел возраста наблюдения450 мс. Нейтраль снимает ввод, но не гарантирует остановку автомобиля. Старая маска не становится свежей при получении нового кадра от другой модели. Экспериментальные `--drive`/калибровочные режимы не являются готовым повседневным автопилотом.
 
 ## Дальнейшая работа
 
-1. Исправить/проверить сбор GPU-событий и достаточность CPU-истории, продолжить анализ ожиданий.
-2. Сравнить640+SegFormer,320+SegFormer и320-only на одинаковой разметке дороги/кузова/препятствий; затем проверить полный возраст наблюдения в движении.
+1. Закрыть оставшиеся пункты аудита: общий drive-safety-gate и допуск по подтверждённой калибровке. Общий владелец, явный re-arm и срок решений до Python проверены офлайн. Отдельно исправить зависимости с уязвимостями.
+2. По завершённой абляции320 не заменяет640: есть регрессии на машинах. Исследовать ускорение с сохранением выходов или отдельный детектор; проверить полный возраст наблюдения в движении. Для анализа ожиданий сначала проверить сбор GPU-событий и достаточность CPU-истории.
 3. Закрыть пробел малых скоростей и направления камеры, провести измеряемую аналоговую калибровку.
 4. Только после проверенного удержания пути/остановки — препятствия, GPS-повороты и короткий маршрут.
 
-Подробнее: [модули и инструменты](outputs/GtaAutopilot/README.md), [текущее состояние](CURRENT-STATUS.md), [план](DEVELOPMENT-PLAN.md).
+Подробнее: [модули и инструменты](docs/autopilot.md), [текущее состояние](CURRENT-STATUS.md), [план](DEVELOPMENT-PLAN.md).
 
 ## Что опубликовано
 

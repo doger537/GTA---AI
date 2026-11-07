@@ -1,0 +1,42 @@
+name: Offline checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  javascript:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 20.18.1
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run test:core
+  bridge:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build and self-test without game input
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ./apps/gta-control/Build.ps1
+          $report = Join-Path $env:RUNNER_TEMP 'gta-self-test.json'
+          $exe = Join-Path $PWD 'apps/gta-control/GtaControl.exe'
+          $process = Start-Process -FilePath $exe -ArgumentList '--self-test', $report -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $report)) { throw 'Self-test failed' }
+          $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+          if (!$result.ok -or $result.game_input_tested) { throw 'Invalid self-test result' }
+      - name: Python ownership and decision-deadline regressions (stdlib only)
+        shell: powershell
+        run: python -m unittest tests.python.test_ownership tests.python.test_decision_deadline

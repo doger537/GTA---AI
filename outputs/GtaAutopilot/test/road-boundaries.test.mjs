@@ -1,4 +1,3 @@
-import{test}from'node:test';import{strict as assert}from'node:assert';import{boundaryCells}from'../evaluate-road-boundaries.mjs';
-const label={polyline:[[.5,0],[.5,1]],road_side:'left',uncertainty_x:.01,band_inner_x:.025,band_outer_x:.045};
-test('boundary strips sample correct sides and omit uncertainty band',()=>{const c=boundaryCells(label,100,4);assert.equal(c.road.length,12);assert.equal(c.nonroad.length,12);assert.ok(c.road.every(i=>i%100<50));assert.ok(c.nonroad.every(i=>i%100>=50));assert.deepEqual(boundaryCells({...label,road_side:'right'},100,4).road,c.nonroad);});
-test('boundary annotations fail on descending or out of bounds lines and uncertainty overlap',()=>{assert.throws(()=>boundaryCells({...label,polyline:[[.5,1],[.5,0]]},100,100));assert.throws(()=>boundaryCells({...label,polyline:[[.01,0],[.01,1]]},100,100));assert.throws(()=>boundaryCells({...label,uncertainty_x:.03},100,100));});
+// Compatibility only; canonical implementation: tests/javascript/road-boundaries.test.mjs
+import "../../../packages/protocols/legacy-entry.mjs?from=..%2F..%2Foutputs%2FGtaAutopilot%2Ftest%2Froad-boundaries.test.mjs&to=..%2F..%2Ftests%2Fjavascript%2Froad-boundaries.test.mjs";
+export * from "../../../tests/javascript/road-boundaries.test.mjs";

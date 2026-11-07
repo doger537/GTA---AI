@@ -1,2 +1,3 @@
-import sharp from 'sharp';
-await sharp(process.argv[2]).extract({left:1550,top:750,width:280,height:160}).resize({width:840}).png().toFile(process.argv[3]);
+// Compatibility only; canonical implementation: experiments/tools/crop-speed.mjs
+import "../../packages/protocols/legacy-entry.mjs?from=..%2F..%2Foutputs%2FGtaAutopilot%2Fcrop-speed.mjs&to=..%2F..%2Fexperiments%2Ftools%2Fcrop-speed.mjs";
+export * from "../../experiments/tools/crop-speed.mjs";

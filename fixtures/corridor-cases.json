@@ -1,0 +1,42 @@
+[
+  {
+    "split": "dev",
+    "session": "2026-11-01T17-32-01-342Z",
+    "file": "000050.jpg"
+  },
+  {
+    "split": "dev",
+    "session": "2026-11-01T17-32-01-342Z",
+    "file": "000310.jpg"
+  },
+  {
+    "split": "dev",
+    "session": "2026-11-01T17-32-01-342Z",
+    "file": "000570.jpg"
+  },
+  {
+    "split": "dev",
+    "session": "2026-11-01T17-32-01-342Z",
+    "file": "000830.jpg"
+  },
+  {
+    "split": "check",
+    "session": "2026-11-02T07-43-54-725Z",
+    "file": "000075.jpg"
+  },
+  {
+    "split": "check",
+    "session": "2026-11-02T07-43-54-725Z",
+    "file": "000335.jpg"
+  },
+  {
+    "split": "check",
+    "session": "2026-11-02T07-43-54-725Z",
+    "file": "000595.jpg"
+  },
+  {
+    "split": "check",
+    "session": "2026-11-02T07-43-54-725Z",
+    "file": "000855.jpg"
+  }
+]

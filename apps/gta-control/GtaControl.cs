@@ -19,6 +19,7 @@ namespace GtaControl {
             if (args.Length == 2 && args[0] == "--self-test") {
                 File.WriteAllText(args[1], Tests.Run()); return;
             }
+            ObservationFrame.ParallelEncoding=Array.IndexOf(args,"--parallel-encoding")>=0;
             Native.SetProcessDPIAware();
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
@@ -146,11 +147,77 @@ namespace GtaControl {
         }
     }
 
+    sealed class DecisionSource {
+        public long Sequence, Generation, CaptureStart, Expires;
+        static long Integer(Dictionary<string,object> data,string key) {
+            object value;if(!data.TryGetValue(key,out value)||(!(value is int)&&!(value is long)))throw new ArgumentException("Integer source "+key+" required");
+            long n=Convert.ToInt64(value);if(n<0||n>9007199254740991L)throw new ArgumentException("Unsafe source integer");return n;
+        }
+        public static DecisionSource Parse(object value) {
+            var d=value as Dictionary<string,object>;
+            if(d==null||d.Count!=4||d.Keys.Any(k=>k!="sequence"&&k!="generation"&&k!="capture_start_ms"&&k!="decision_expires_ms"))throw new ArgumentException("Decision source required");
+            var s=new DecisionSource{Sequence=Integer(d,"sequence"),Generation=Integer(d,"generation"),CaptureStart=Integer(d,"capture_start_ms"),Expires=Integer(d,"decision_expires_ms")};
+            if(s.CaptureStart>9007199254740541L||s.Expires<=s.CaptureStart||s.Expires>s.CaptureStart+450)throw new ArgumentException("Invalid capture-clock decision deadline");return s;
+        }
+    }
+
+    // Authority state is protected by Bridge.gate. A revoked gamepad remains
+    // reserved until its backend acknowledges that the device is neutral.
+    sealed class InputOwner {
+        public string Kind, Token, State = "disarmed";
+        public long Expires;
+        DecisionSource source;
+        long sourceExpires;
+        public bool Present { get { return Token != null; } }
+        public string Arm(string kind, long now) {
+            if (Present) throw new InvalidOperationException("Input already owned or awaiting neutral acknowledgement");
+            if (kind != "keyboard" && kind != "gamepad") throw new ArgumentException("Owner kind must be keyboard or gamepad");
+            Kind=kind; Token=Guid.NewGuid().ToString("N");source=null;sourceExpires=0; State=kind=="gamepad"?"reserved":"active"; Expires=now+(kind=="gamepad"?5000:250); return Token;
+        }
+        public void Require(string token,string kind,long now,bool reserve=false) {
+            if (!Present || token!=Token || kind!=Kind || State=="revoking" || (!reserve&&State!="active") || now>=Expires)
+                throw new InvalidOperationException("Input ownership expired or revoked; explicit arm required");
+        }
+        public void Renew(string token,string kind,long now,int duration) { if(kind!="keyboard")throw new InvalidOperationException("Gamepad requires a source-timed decision");Require(token,kind,now,true);State="active";Expires=now+duration; }
+        public void RenewDecision(string token,long generation,long now,int duration,DecisionSource decision) {
+            Require(token,"gamepad",now,true);
+            if(duration<20||duration>250)throw new ArgumentException("Gamepad lease must be20..250ms");
+            if(decision==null||decision.Generation!=generation||decision.CaptureStart>now||decision.Expires<=now||decision.Expires>decision.CaptureStart+450)throw new InvalidOperationException("Decision source expired or control generation changed");
+            long limit=Math.Min(decision.Expires,now+duration);
+            if(source!=null){
+                if(decision.Generation!=source.Generation||decision.Sequence<source.Sequence)throw new InvalidOperationException("Decision source order/session changed");
+                if(decision.Sequence==source.Sequence){
+                    if(decision.CaptureStart!=source.CaptureStart||decision.Expires>source.Expires)throw new InvalidOperationException("Same-source decision cannot be extended or changed");
+                    limit=Math.Min(limit,sourceExpires);
+                }else if(decision.CaptureStart<=source.CaptureStart)throw new InvalidOperationException("Non-increasing decision capture time");
+            }
+            if(limit-now<20)throw new InvalidOperationException("Decision expired before application");
+            source=new DecisionSource{Sequence=decision.Sequence,Generation=decision.Generation,CaptureStart=decision.CaptureStart,Expires=decision.Expires};sourceExpires=limit;State="active";Expires=limit;
+        }
+        public void Revoke() { if(Kind=="gamepad"&&Present)State="revoking";else Clear(); }
+        public void Acknowledge(string token) { if(!Present||token!=Token)throw new InvalidOperationException("Wrong input owner");Clear(); }
+        void Clear() { Kind=null;Token=null;State="disarmed";Expires=0;source=null;sourceExpires=0; }
+    }
+
+    sealed class InputFileGuard : IDisposable {
+        FileStream file;
+        public static string PathName { get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"GTA-AI","input-owner.lock"); } }
+        public InputFileGuard() : this(PathName) { }
+        public InputFileGuard(string path) {
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            try { file=new FileStream(path,FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None); }
+            catch(IOException) { throw new InvalidOperationException("Another process owns game input"); }
+        }
+        public void Dispose() { if(file!=null){file.Dispose();file=null;} }
+    }
+
     sealed class Bridge {
         public readonly Navigation Navigation = new Navigation();
         readonly object gate = new object();
         readonly HashSet<string> keys = new HashSet<string>();
         readonly HashSet<string> buttons = new HashSet<string>();
+        readonly InputOwner owner = new InputOwner();
+        InputFileGuard inputGuard;
         IntPtr target;
         bool busy;
         bool holding;
@@ -158,18 +225,49 @@ namespace GtaControl {
         readonly System.Threading.Timer holdTimer;
         long generation;
         string last = "Ожидание команды";
-        public Bridge() { holdTimer = new System.Threading.Timer(delegate { lock (gate) { if (holding && (FramePump.Clock.ElapsedMilliseconds >= holdExpires || Native.GetForegroundWindow() != target || (Native.GetAsyncKeyState(0x77) & 0x8000) != 0)) Stop(); } }, null, 20, 20); }
+        public Bridge() { holdTimer = new System.Threading.Timer(delegate { lock (gate) { if (owner.Present && owner.State!="revoking" && (FramePump.Clock.ElapsedMilliseconds >= owner.Expires || Native.GetForegroundWindow() != target || (Native.GetAsyncKeyState(0x77) & 0x8000) != 0) || holding && FramePump.Clock.ElapsedMilliseconds >= holdExpires) Stop(); } }, null, 20, 20); }
         public IntPtr Target { get { lock (gate) return target; } set { lock (gate) target = value; } }
         public string Describe() { lock (gate) return "Состояние: " + last + (busy ? " · ввод выполняется" : ""); }
         public object Info() {
-            lock (gate) return new { target_found = Native.IsWindow(target), foreground = target != IntPtr.Zero && Native.GetForegroundWindow() == target, busy = busy, generation = generation, hold_supported = true, status = last, keys = Native.Keys.Keys.ToArray(), max_duration_ms = 5000, keyboard_mode = "SendInput scan codes" };
+            lock (gate) return new { target_found = Native.IsWindow(target), foreground = target != IntPtr.Zero && Native.GetForegroundWindow() == target, busy = busy, generation = generation, hold_supported = true, ownership_supported = true, decision_deadline_supported=true, input_owner=owner.Kind, input_state=owner.State, status = last, keys = Native.Keys.Keys.ToArray(), max_duration_ms = 5000, keyboard_mode = "SendInput scan codes" };
+        }
+        void RequireOwner(string token,string kind,long expectedGeneration,bool reserve=false) {
+            if(generation!=expectedGeneration)throw new InvalidOperationException("Control generation changed; explicit arm required");
+            owner.Require(token,kind,FramePump.Clock.ElapsedMilliseconds,reserve);RequireFocus();
+            if((Native.GetAsyncKeyState(0x77)&0x8000)!=0){Stop();throw new InvalidOperationException("F8 stop active");}
+        }
+        public object ArmInput(string kind,long expectedGeneration,int pid) {
+            lock(gate) {
+                if(generation!=expectedGeneration)throw new InvalidOperationException("Control generation changed");
+                RequireFocus();if((Native.GetAsyncKeyState(0x77)&0x8000)!=0)throw new InvalidOperationException("F8 stop active");
+                if(owner.Present||busy)throw new InvalidOperationException("Input already owned or awaiting neutral acknowledgement");
+                if(kind=="gamepad"){uint actual;Native.GetWindowThreadProcessId(target,out actual);if(pid<=0||actual!=(uint)pid)throw new InvalidOperationException("Gamepad target PID mismatch");}
+                if(kind=="keyboard")inputGuard=new InputFileGuard();
+                try { string token=owner.Arm(kind,FramePump.Clock.ElapsedMilliseconds);return new {owner_id=token,generation=generation}; }
+                catch { if(inputGuard!=null){inputGuard.Dispose();inputGuard=null;}throw; }
+            }
+        }
+        public object CheckGamepad(string token,long expectedGeneration,int duration,DecisionSource source=null) {
+            lock(gate) {
+                RequireOwner(token,"gamepad",expectedGeneration,true);
+                if(duration!=0)owner.RenewDecision(token,expectedGeneration,FramePump.Clock.ElapsedMilliseconds,duration,source);
+                return new {ok=true,remaining_ms=Math.Max(0,owner.Expires-FramePump.Clock.ElapsedMilliseconds)};
+            }
+        }
+        public void ReleaseInput(string token) {
+            lock(gate) {
+                if(!owner.Present||token!=owner.Token)throw new InvalidOperationException("Wrong input owner");
+                // A neutral gamepad voluntarily relinquishing its capability
+                // is not a global stop. An earlier /stop already changed generation.
+                if(owner.Kind=="gamepad")owner.Acknowledge(token);else Stop();
+            }
         }
         void RequireFocus() {
             if (target == IntPtr.Zero || !Native.IsWindow(target)) throw new InvalidOperationException("GTA window not found");
             if (Native.GetForegroundWindow() != target) throw new InvalidOperationException("GTA must be in foreground");
         }
         public void CheckFocus() { lock (gate) { if (busy && Native.GetForegroundWindow() != target) Stop(); } }
-        public IntPtr ManualTarget() { lock (gate) { RequireFocus(); if (busy) throw new InvalidOperationException("Disable automated control before recording"); return target; } }
+        public IntPtr ManualTarget() { lock (gate) { RequireFocus(); if (busy||owner.Present) throw new InvalidOperationException("Disable automated control before recording"); return target; } }
         public string DrivingKeys() {
             lock (gate) {
                 RequireFocus();
@@ -178,10 +276,12 @@ namespace GtaControl {
                 return String.Join(",", names.Where((name, i) => (Native.GetAsyncKeyState(codes[i]) & 0x8000) != 0));
             }
         }
-        public void Hold(ActionSpec action, long expectedGeneration) {
+        public void Hold(ActionSpec action, long expectedGeneration, long? observationExpires=null,string ownerToken=null) {
             if (action.Duration > 650 || action.Buttons.Length != 0 || action.Dx != 0 || action.Dy != 0) throw new ArgumentException("Hold accepts only keys and a lease of 20..650 ms");
             lock (gate) {
+                if(observationExpires.HasValue){long remaining=observationExpires.Value-FramePump.Clock.ElapsedMilliseconds;if(remaining<20||remaining>450)throw new InvalidOperationException("Observation deadline expired or invalid");action.Duration=(int)Math.Min(action.Duration,remaining);}
                 RequireFocus();
+                RequireOwner(ownerToken,"keyboard",expectedGeneration);
                 if (generation != expectedGeneration || (Native.GetAsyncKeyState(0x77) & 0x8000) != 0) throw new InvalidOperationException("Control session stopped; explicit restart required");
                 if (busy && !holding) throw new InvalidOperationException("Another action is running");
                 try {
@@ -189,16 +289,18 @@ namespace GtaControl {
                     string[] added = action.Keys.Except(keys).ToArray();
                     foreach (string key in added) keys.Add(key);
                     Native.Press(added, new string[0], 0, 0);
-                    holding = true; busy = true; holdExpires = FramePump.Clock.ElapsedMilliseconds + action.Duration;
+                    holding = true; busy = true; holdExpires = FramePump.Clock.ElapsedMilliseconds + action.Duration;if(observationExpires.HasValue)holdExpires=Math.Min(holdExpires,observationExpires.Value);
+                    owner.Renew(ownerToken,"keyboard",FramePump.Clock.ElapsedMilliseconds,(int)Math.Max(1,holdExpires-FramePump.Clock.ElapsedMilliseconds));
                     last = "Удержание: " + String.Join(" + ", action.Keys);
                 } catch { Stop(); throw; }
             }
         }
-        public ActionResult Act(ActionSpec action) {
+        public ActionResult Act(ActionSpec action,string ownerToken=null,long expectedGeneration=-1) {
             long ticket;
             lock (gate) {
                 RequireFocus(); if (busy) throw new InvalidOperationException("Another action is running");
-                busy = true; ticket = ++generation;
+                RequireOwner(ownerToken,"keyboard",expectedGeneration);
+                busy = true; ticket = generation;owner.Renew(ownerToken,"keyboard",FramePump.Clock.ElapsedMilliseconds,action.Duration+50);
                 try {
                     // Track keys BEFORE injection, so partial failures still release everything.
                     foreach (string key in action.Keys) keys.Add(key);
@@ -219,7 +321,7 @@ namespace GtaControl {
                 }
             } finally {
                 lock (gate) {
-                    if (generation == ticket) { Release(); busy = false; last = "Команда завершена, клавиши отпущены"; }
+                    if (generation == ticket) { Release(); busy = false; owner.Renew(ownerToken,"keyboard",FramePump.Clock.ElapsedMilliseconds,250);last = "Команда завершена, клавиши отпущены"; }
                 }
             }
             return new ActionResult { interrupted = stopped, elapsed_ms = watch.ElapsedMilliseconds };
@@ -230,12 +332,12 @@ namespace GtaControl {
             foreach (string button in buttons.ToArray()) { try { Native.ReleaseButton(button); } catch { } }
             keys.Clear(); buttons.Clear();
         }
-        public void Stop() { lock (gate) { ++generation; holding = false; Release(); busy = false; Navigation.Clear(); last = "Остановлено, клавиши отпущены"; } }
+        public void Stop() { lock (gate) { ++generation; holding = false; Release(); busy = false; owner.Revoke();if(inputGuard!=null){inputGuard.Dispose();inputGuard=null;}Navigation.Clear(); last = "Остановлено, клавиши отпущены"; } }
         public IntPtr EnsureForeground() { lock (gate) { RequireFocus(); return target; } }
         long hudSequence;
         long observationSequence;
         public ObservationFrame CaptureObservation() {
-            Bitmap bitmap=null;long start,end,seq,gen;
+            Bitmap bitmap=null;long start,end,seq,gen;var acquireWatch=Stopwatch.StartNew();double captureWorkMs=0;
             try {
                 lock(gate) {
                     RequireFocus();Native.RECT rect;if(!Native.GetClientRect(target,out rect))throw new InvalidOperationException("GetClientRect failed");
@@ -243,11 +345,13 @@ namespace GtaControl {
                     int width=rect.Right-rect.Left,height=rect.Bottom-rect.Top;
                     if(width<10||height<10||width>10000||height>10000)throw new InvalidOperationException("Invalid client size");
                     bitmap=new Bitmap(width,height);start=FramePump.Clock.ElapsedMilliseconds;
+                    var copyWatch=Stopwatch.StartNew();
                     using(var graphics=Graphics.FromImage(bitmap))graphics.CopyFromScreen(point.X,point.Y,0,0,bitmap.Size,CopyPixelOperation.SourceCopy);
+                    captureWorkMs=copyWatch.Elapsed.TotalMilliseconds;
                     end=FramePump.Clock.ElapsedMilliseconds;RequireFocus();seq=++observationSequence;gen=generation;
                 }
                 // All three views derive from this one immutable source bitmap.
-                var frame=ObservationFrame.Encode(bitmap);frame.StartedMs=start;frame.FinishedMs=end;frame.Sequence=seq;frame.Generation=gen;return frame;
+                var frame=ObservationFrame.Encode(bitmap,ObservationFrame.ParallelEncoding);frame.StartedMs=start;frame.FinishedMs=end;frame.Sequence=seq;frame.Generation=gen;frame.CaptureWorkMs=captureWorkMs;frame.AcquireMs=acquireWatch.Elapsed.TotalMilliseconds;return frame;
             }finally{if(bitmap!=null)bitmap.Dispose();}
         }
         public HudFrame CaptureHud() {
@@ -390,19 +494,46 @@ namespace GtaControl {
     }
 
     sealed class ObservationFrame {
+        public static bool ParallelEncoding;
+        public bool EncodedParallel;
         public byte[] Road,Hud,Minimap;public int Width,Height;public Rectangle HudRegion,MapRegion;
         public long StartedMs,FinishedMs,Sequence,Generation;
-        public static ObservationFrame Encode(Bitmap source) {
+        public double CaptureWorkMs,AcquireMs,EncodeMs,RoadMs,HudMs,MapMs,PackMs;
+        public EncodingProfile RoadEncoding=new EncodingProfile();
+        public static ObservationFrame Encode(Bitmap source, bool parallel=false) {
+            var total=Stopwatch.StartNew();
             var frame=new ObservationFrame { Width=source.Width,Height=source.Height,HudRegion=HudFrame.Bounds(source.Width,source.Height),MapRegion=new Rectangle(0,(int)Math.Floor(source.Height*.72),(int)Math.Ceiling(source.Width*.25),source.Height-(int)Math.Floor(source.Height*.72)) };
-            frame.Road=Frames.Encode(source,true);
+            frame.EncodedParallel=parallel;
+            if(parallel) {
+                // Clone both regions before any worker touches the source Bitmap.
+                // Each branch owns distinct GDI+ objects; Invoke joins even on error.
+                using(var hud=source.Clone(frame.HudRegion,source.PixelFormat))
+                using(var map=source.Clone(frame.MapRegion,source.PixelFormat)) {
+                    System.Threading.Tasks.Parallel.Invoke(new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism=3 },
+                        ()=>{var watch=Stopwatch.StartNew();frame.Road=Frames.Encode(source,true,frame.RoadEncoding);frame.RoadMs=watch.Elapsed.TotalMilliseconds;},
+                        ()=>{var watch=Stopwatch.StartNew();frame.Hud=Frames.Encode(hud,false);frame.HudMs=watch.Elapsed.TotalMilliseconds;},
+                        ()=>{var watch=Stopwatch.StartNew();frame.Minimap=Frames.Encode(map,false);frame.MapMs=watch.Elapsed.TotalMilliseconds;});
+                }
+                frame.EncodeMs=total.Elapsed.TotalMilliseconds;return frame;
+            }
+            var phase=Stopwatch.StartNew();frame.Road=Frames.Encode(source,true,frame.RoadEncoding);frame.RoadMs=phase.Elapsed.TotalMilliseconds;phase.Restart();
             using(var hud=source.Clone(frame.HudRegion,source.PixelFormat))frame.Hud=Frames.Encode(hud,false);
+            frame.HudMs=phase.Elapsed.TotalMilliseconds;phase.Restart();
             using(var map=source.Clone(frame.MapRegion,source.PixelFormat))frame.Minimap=Frames.Encode(map,false);
+            frame.MapMs=phase.Elapsed.TotalMilliseconds;frame.EncodeMs=total.Elapsed.TotalMilliseconds;
             return frame;
         }
         public byte[] Pack() {
-            var bytes=new byte[Road.Length+Hud.Length+Minimap.Length];Buffer.BlockCopy(Road,0,bytes,0,Road.Length);Buffer.BlockCopy(Hud,0,bytes,Road.Length,Hud.Length);Buffer.BlockCopy(Minimap,0,bytes,Road.Length+Hud.Length,Minimap.Length);return bytes;
+            var watch=Stopwatch.StartNew();var bytes=new byte[Road.Length+Hud.Length+Minimap.Length];Buffer.BlockCopy(Road,0,bytes,0,Road.Length);Buffer.BlockCopy(Hud,0,bytes,Road.Length,Hud.Length);Buffer.BlockCopy(Minimap,0,bytes,Road.Length+Hud.Length,Minimap.Length);PackMs=watch.Elapsed.TotalMilliseconds;return bytes;
+        }
+        public string TimingHeaders(double prepareMs) {
+            string[] names={"capture-work","acquire","encode","road","hud","map","road-resize","road-codec","pack","prepare"};
+            double[] values={CaptureWorkMs,AcquireMs,EncodeMs,RoadMs,HudMs,MapMs,RoadEncoding.ResizeMs,RoadEncoding.CodecMs,PackMs,prepareMs};
+            var text=new StringBuilder();for(int i=0;i<names.Length;i++)text.Append("X-Obs-").Append(names[i]).Append("-Ms: ").Append(values[i].ToString("F6",System.Globalization.CultureInfo.InvariantCulture)).Append("\r\n");text.Append("X-Obs-Encoding-Parallel: ").Append(EncodedParallel?"true":"false").Append("\r\n");return text.ToString();
         }
     }
+
+    sealed class EncodingProfile { public double ResizeMs,CodecMs; }
 
     sealed class HudFrame {
         public byte[] Bytes;public int FullWidth,FullHeight;public Rectangle Region;public long Sequence,StartedMs,FinishedMs;
@@ -472,10 +603,11 @@ namespace GtaControl {
 
     static class Frames {
         static readonly ImageCodecInfo JpegEncoder=ImageCodecInfo.GetImageEncoders().First(c=>c.FormatID==ImageFormat.Jpeg.Guid);
-        public static byte[] Encode(Bitmap source, bool compact) {
+        public static byte[] Encode(Bitmap source, bool compact, EncodingProfile profile=null) {
             using (var stream = new MemoryStream()) {
                 if (!compact) source.Save(stream, ImageFormat.Png);
                 else {
+                    var resizeWatch=profile==null?null:Stopwatch.StartNew();
                     double ratio = Math.Min(1.0, Math.Min(1280.0 / source.Width, 720.0 / source.Height));
                     int width = Math.Max(1, (int)Math.Round(source.Width * ratio));
                     int height = Math.Max(1, (int)Math.Round(source.Height * ratio));
@@ -485,8 +617,11 @@ namespace GtaControl {
                             graphics.DrawImage(source, 0, 0, width, height);
                         }
                         using (var parameters = new EncoderParameters(1)) {
+                            if(profile!=null)profile.ResizeMs=resizeWatch.Elapsed.TotalMilliseconds;
                             parameters.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 75L);
+                            var codecWatch=profile==null?null:Stopwatch.StartNew();
                             reduced.Save(stream, JpegEncoder, parameters);
+                            if(profile!=null)profile.CodecMs=codecWatch.Elapsed.TotalMilliseconds;
                         }
                     }
                 }
@@ -621,12 +756,14 @@ namespace GtaControl {
                         if (method == "GET" && path == "/capture-status") { Reply(stream, 200, Json.Encode(frames.Info())); return; }
                         if (method == "GET" && path == "/screenshot") { Reply(stream, 200, bridge.Screenshot(), "image/png"); return; }
                         if (method == "GET" && path == "/observation") {
+                            var prepareWatch=Stopwatch.StartNew();
                             var f=bridge.CaptureObservation();var h=f.HudRegion;var m=f.MapRegion;
                             string metadata="X-Observation-Version: 1\r\nX-Road-Bytes: "+f.Road.Length+"\r\nX-Hud-Bytes: "+f.Hud.Length+"\r\nX-Minimap-Bytes: "+f.Minimap.Length+"\r\n";
                             metadata+="X-Frame-Sequence: "+f.Sequence+"\r\nX-Generation: "+f.Generation+"\r\nX-Capture-Start-Ms: "+f.StartedMs+"\r\nX-Capture-End-Ms: "+f.FinishedMs+"\r\nX-Frame-Age-Ms: "+(FramePump.Clock.ElapsedMilliseconds-f.StartedMs)+"\r\n";
                             metadata+="X-Hud-Full-Width: "+f.Width+"\r\nX-Hud-Full-Height: "+f.Height+"\r\nX-Hud-Left: "+h.Left+"\r\nX-Hud-Top: "+h.Top+"\r\nX-Hud-Width: "+h.Width+"\r\nX-Hud-Height: "+h.Height+"\r\n";
                             metadata+="X-Minimap-Left: "+m.Left+"\r\nX-Minimap-Top: "+m.Top+"\r\nX-Minimap-Width: "+m.Width+"\r\nX-Minimap-Height: "+m.Height+"\r\n";
-                            Reply(stream,200,f.Pack(),"application/octet-stream",metadata);return;
+                            var packed=f.Pack();metadata+=f.TimingHeaders(prepareWatch.Elapsed.TotalMilliseconds);
+                            Reply(stream,200,packed,"application/octet-stream",metadata);return;
                         }
                         if (method == "GET" && path == "/hud") {
                             var hud=bridge.CaptureHud();string metadata="X-Frame-Sequence: "+hud.Sequence+"\r\nX-Frame-Age-Ms: "+(FramePump.Clock.ElapsedMilliseconds-hud.StartedMs)+"\r\nX-Capture-Start-Ms: "+hud.StartedMs+"\r\nX-Capture-End-Ms: "+hud.FinishedMs+"\r\n";
@@ -635,6 +772,24 @@ namespace GtaControl {
                         }
                         if (method == "GET" && path == "/frame") { ReplyFrame(stream, frames.Get(-1), ""); return; }
                         if (method == "POST" && path == "/stop") { bridge.Stop(); Reply(stream, 200, "{\"ok\":true}"); return; }
+                        if(method=="POST"&&path=="/control/arm") {
+                            var d=Json.Decode(Encoding.UTF8.GetString(body));
+                            if(d==null||d.Keys.Any(k=>k!="kind"&&k!="generation"&&k!="target_pid")||!d.ContainsKey("kind")||!(d["kind"] is string)||!d.ContainsKey("generation")||!(d["generation"] is int)||d.ContainsKey("target_pid")&&!(d["target_pid"] is int))throw new ArgumentException("kind and integer generation required");
+                            Reply(stream,200,Json.Encode(bridge.ArmInput((string)d["kind"],(int)d["generation"],d.ContainsKey("target_pid")?(int)d["target_pid"]:0)));return;
+                        }
+                        if(method=="POST"&&(path=="/control/check"||path=="/control/release")) {
+                            var d=Json.Decode(Encoding.UTF8.GetString(body));
+                            if(d==null||!d.ContainsKey("owner_id")||!(d["owner_id"] is string))throw new ArgumentException("owner_id required");
+                            if(path=="/control/release"){
+                                if(d.Keys.Any(k=>k!="owner_id"))throw new ArgumentException("Unexpected owner release fields");
+                                bridge.ReleaseInput((string)d["owner_id"]);Reply(stream,200,"{\"ok\":true}");return;
+                            }
+                            if(d.Keys.Any(k=>k!="owner_id"&&k!="generation"&&k!="duration_ms"&&k!="source")||!d.ContainsKey("generation")||!(d["generation"] is int)||d.ContainsKey("duration_ms")&&!(d["duration_ms"] is int))throw new ArgumentException("Owner generation and optional source-timed duration required");
+                            DecisionSource decision=null;
+                            if(d.ContainsKey("duration_ms")){if((int)d["duration_ms"]<20||(int)d["duration_ms"]>250||!d.ContainsKey("source"))throw new ArgumentException("Source-timed gamepad command required");decision=DecisionSource.Parse(d["source"]);}
+                            else if(d.ContainsKey("source"))throw new ArgumentException("Source without command duration");
+                            Reply(stream,200,Json.Encode(bridge.CheckGamepad((string)d["owner_id"],(int)d["generation"],d.ContainsKey("duration_ms")?(int)d["duration_ms"]:0,decision)));return;
+                        }
                         if (method == "GET" && path == "/navigation") { Reply(stream,200,Json.Encode(bridge.Navigation.Snapshot()));return; }
                         if (method == "POST" && path == "/navigation") { Reply(stream,200,Json.Encode(bridge.Navigation.Set(Json.Decode(Encoding.UTF8.GetString(body)))));return; }
                         if (method == "POST" && path == "/record/start") {
@@ -651,18 +806,23 @@ namespace GtaControl {
                             var data = Json.Decode(Encoding.UTF8.GetString(body)); object epoch;
                             if (data == null || !data.TryGetValue("generation", out epoch) || !(epoch is int)) throw new ArgumentException("Integer generation required");
                             data.Remove("generation");
-                            bridge.Hold(ActionSpec.Parse(data), (int)epoch);
-                            Reply(stream, 200, "{\"ok\":true}"); return;
+                            string ownerToken=null;object ownerValue;if(data.TryGetValue("owner_id",out ownerValue)){if(!(ownerValue is string))throw new ArgumentException("String owner_id required");ownerToken=(string)ownerValue;data.Remove("owner_id");}
+                            long? deadline=null;object expires;
+                            if(data.TryGetValue("observation_expires_ms",out expires)){if(!(expires is int)&&!(expires is long))throw new ArgumentException("Integer observation deadline required");deadline=Convert.ToInt64(expires);data.Remove("observation_expires_ms");}
+                            var holdSpec=ActionSpec.Parse(data);
+                            if(!Monitor.TryEnter(actionGate)){Reply(stream,409,"Another action is running");return;}
+                            try{bridge.Hold(holdSpec,(int)epoch,deadline,ownerToken);Reply(stream,200,"{\"ok\":true}");}finally{Monitor.Exit(actionGate);}return;
                         }
                         if (method == "POST" && (path == "/action" || path == "/step")) {
                             if (contentLength < 2) { Reply(stream, 400, "JSON action required"); return; }
                             ActionSpec spec;
-                            try { spec = ActionSpec.Parse(Json.Decode(Encoding.UTF8.GetString(body))); }
+                            string ownerToken=null;long ownerGeneration=-1;
+                            try { var d=Json.Decode(Encoding.UTF8.GetString(body));object v;if(d!=null&&d.TryGetValue("owner_id",out v)){if(!(v is string))throw new ArgumentException("String owner_id required");ownerToken=(string)v;d.Remove("owner_id");}if(d!=null&&d.TryGetValue("generation",out v)){if(!(v is int))throw new ArgumentException("Integer generation required");ownerGeneration=(int)v;d.Remove("generation");}spec = ActionSpec.Parse(d); }
                             catch (Exception ex) { Reply(stream, 400, Json.Encode(new { error = ex.Message })); return; }
                             if (!Monitor.TryEnter(actionGate)) { Reply(stream, 409, "Another action is running"); return; }
                             try {
                                 var totalWatch = Stopwatch.StartNew();
-                                ActionResult result = bridge.Act(spec);
+                                ActionResult result = bridge.Act(spec,ownerToken,ownerGeneration);
                                 if (path == "/action") Reply(stream, 200, Json.Encode(result));
                                 else {
                                     // Wait for a capture STARTED after input ended plus a render interval.
@@ -705,8 +865,50 @@ namespace GtaControl {
     }
 
     static class Tests {
+        static void MustReject(Action action) { bool rejected=false;try{action();}catch(InvalidOperationException){rejected=true;}if(!rejected)throw new Exception("Unsafe ownership transition accepted"); }
+        static DecisionSource Source(long seq=1,long capture=1000,long expires=1350,long generation=7) { return DecisionSource.Parse(Json.Decode("{\"sequence\":"+seq+",\"capture_start_ms\":"+capture+",\"decision_expires_ms\":"+expires+",\"generation\":"+generation+"}")); }
+        static void DecisionChecks(List<string> passed) {
+            var owner=new InputOwner();string token=owner.Arm("gamepad",1100);
+            owner.RenewDecision(token,7,1150,250,Source());if(owner.Expires!=1350)throw new Exception("Queue delay became a fresh lease");
+            owner.RenewDecision(token,7,1200,250,Source());if(owner.Expires!=1350)throw new Exception("Duplicate decision extended its deadline");
+            MustReject(()=>owner.RenewDecision(token,7,1200,250,Source(expires:1351)));
+            MustReject(()=>owner.RenewDecision(token,7,1200,250,Source(capture:1001)));
+            MustReject(()=>owner.RenewDecision(token,7,1200,250,Source(seq:0)));
+            MustReject(()=>owner.RenewDecision(token,7,1200,250,Source(generation:8)));
+            MustReject(()=>owner.RenewDecision(token,7,1200,250,Source(seq:2,capture:999)));
+            MustReject(()=>owner.RenewDecision(token,7,1200,250,null));
+            MustReject(()=>owner.Renew(token,"gamepad",1200,250));
+            owner.RenewDecision(token,7,1250,250,Source(seq:2,capture:1200,expires:1450));if(owner.Expires!=1450)throw new Exception("Fresh later source was not accepted");
+            MustReject(()=>owner.RenewDecision(token,7,1450,250,Source(seq:3,capture:1440,expires:1600)));
+            passed.Add("Capture-clock decisions: queue delay subtracted, same-frame heartbeat cannot extend, source order/generation/identity enforced, expired session cannot revive");
+            var edge=new InputOwner();string edgeToken=edge.Arm("gamepad",1300);
+            MustReject(()=>edge.RenewDecision(edgeToken,7,1300,250,Source(expires:1250)));
+            MustReject(()=>edge.RenewDecision(edgeToken,7,1300,250,Source(capture:1301,expires:1450)));
+            MustReject(()=>edge.RenewDecision(edgeToken,7,1431,250,Source(expires:1450)));
+            edge.RenewDecision(edgeToken,7,1430,250,Source(expires:1450));if(edge.Expires!=1450)throw new Exception("450ms capture cap was ignored");
+            foreach(string payload in new[]{"{}","{\"sequence\":true,\"generation\":7,\"capture_start_ms\":1000,\"decision_expires_ms\":1250}","{\"sequence\":1,\"generation\":7,\"capture_start_ms\":1000,\"decision_expires_ms\":1451}","{\"sequence\":1,\"generation\":7,\"capture_start_ms\":1000,\"decision_expires_ms\":1250.5}"}){
+                bool rejected=false;try{DecisionSource.Parse(Json.Decode(payload));}catch(ArgumentException){rejected=true;}if(!rejected)throw new Exception("Malformed decision source accepted");
+            }
+            passed.Add("Capture-clock boundaries: elapsed decision, future capture, insufficient remaining time, integer-only metadata and 450ms maximum age");
+        }
+        static void OwnershipChecks(List<string> passed) {
+            var owner=new InputOwner();string first=owner.Arm("keyboard",0);
+            MustReject(()=>owner.Arm("gamepad",1));MustReject(()=>owner.Require(first,"gamepad",1));MustReject(()=>owner.Require("wrong","keyboard",1));
+            owner.Require(first,"keyboard",249);MustReject(()=>owner.Require(first,"keyboard",250));MustReject(()=>owner.Renew(first,"keyboard",250,250));
+            owner.Revoke();string pad=owner.Arm("gamepad",300);owner.RenewDecision(pad,0,301,250,new DecisionSource{Sequence=1,Generation=0,CaptureStart=300,Expires=551});
+            MustReject(()=>owner.Require(first,"keyboard",302));owner.Revoke();
+            MustReject(()=>owner.Require(pad,"gamepad",302));MustReject(()=>owner.Renew(pad,"gamepad",302,250));MustReject(()=>owner.Arm("keyboard",9000));MustReject(()=>owner.Acknowledge(first));
+            owner.Acknowledge(pad);string next=owner.Arm("keyboard",9000);owner.Require(next,"keyboard",9001);MustReject(()=>owner.Require(pad,"gamepad",9001));
+            passed.Add("Input ownership: exclusive modes, expiry/revocation latch, neutral acknowledgement and stale-capability rejection");
+            string file=Path.Combine(Path.GetTempPath(),"gta-input-guard-"+Guid.NewGuid().ToString("N")+".lock");
+            try {using(var guard=new InputFileGuard(file)){MustReject(()=>{using(var other=new InputFileGuard(file)){};});}using(var nextGuard=new InputFileGuard(file)){};}
+            finally{File.Delete(file);}
+            passed.Add("Process input guard: competing file handle rejected, reacquisition only after release");
+        }
         public static string Run() {
             var passed = new List<string>();
+            OwnershipChecks(passed);
+            DecisionChecks(passed);
             ActionSpec a = ActionSpec.Parse(Json.Decode("{\"keys\":[\"w\",\"shift\"],\"duration_ms\":1000,\"dx\":-10}"));
             if (a.Keys.Length != 2 || a.Duration != 1000 || a.Dx != -10) throw new Exception("Valid action parse failed");
             passed.Add("Simultaneous keys and movement accepted");
@@ -743,7 +945,12 @@ namespace GtaControl {
             using(var source=new Bitmap(1920,1080)) {
                 using(var graphics=Graphics.FromImage(source))graphics.Clear(Color.FromArgb(42,173,211));
                 var observation=ObservationFrame.Encode(source);
+                var concurrent=ObservationFrame.Encode(source,true);
+                if(!concurrent.Road.SequenceEqual(observation.Road)||!concurrent.Hud.SequenceEqual(observation.Hud)||!concurrent.Minimap.SequenceEqual(observation.Minimap))throw new Exception("Parallel observation bytes changed");
+                if(concurrent.EncodeMs<Math.Max(concurrent.RoadMs,Math.Max(concurrent.HudMs,concurrent.MapMs))||!concurrent.EncodedParallel||observation.EncodedParallel)throw new Exception("Parallel observation timing/mode failed");
                 if(observation.Pack().Length!=observation.Road.Length+observation.Hud.Length+observation.Minimap.Length)throw new Exception("Observation packing failed");
+                if(observation.EncodeMs<observation.RoadMs+observation.HudMs+observation.MapMs||observation.RoadMs<observation.RoadEncoding.ResizeMs+observation.RoadEncoding.CodecMs||observation.PackMs<0)throw new Exception("Observation timing nesting failed");
+                if(!observation.TimingHeaders(123.25).Contains("X-Obs-prepare-Ms: 123.250000\r\n"))throw new Exception("Observation timing header format failed");
                 using(var stream=new MemoryStream(observation.Hud))using(var image=new Bitmap(stream)) {
                     if(image.Width!=observation.HudRegion.Width||image.Height!=observation.HudRegion.Height||image.GetPixel(0,0).ToArgb()!=source.GetPixel(observation.HudRegion.X,observation.HudRegion.Y).ToArgb())throw new Exception("Observation HUD pixels changed");
                 }
@@ -753,9 +960,22 @@ namespace GtaControl {
             }
             passed.Add("Single-source observation packs JPEG road and native lossless HUD/minimap");
             var bridge = new Bridge();
+            foreach(long deadline in new[]{FramePump.Clock.ElapsedMilliseconds-1,FramePump.Clock.ElapsedMilliseconds+10000}){
+                try{bridge.Hold(new ActionSpec(),0,deadline);throw new Exception("Invalid observation deadline accepted");}
+                catch(InvalidOperationException ex){if(!ex.Message.Contains("Observation deadline"))throw;}
+            }
             using (var recorder = new ManualInputRecorder(bridge))
             using (var server = new Server(bridge,recorder)) {
                 server.Start();
+                // Hold the same gate used throughout /step, including its frame wait.
+                var inputGate=typeof(Server).GetField("actionGate",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(server);
+                using(var entered=new ManualResetEvent(false))using(var release=new ManualResetEvent(false)){
+                    var holder=new Thread(()=>{lock(inputGate){entered.Set();release.WaitOne(3000);}});holder.Start();
+                    try{if(!entered.WaitOne(1000))throw new Exception("Gate test startup timeout");string response;
+                        if(Post(server.Url+"/hold",server.Token,"{\"keys\":[],\"duration_ms\":50,\"generation\":0}",out response)!=409||!response.Contains("Another action is running"))throw new Exception("Hold bypassed action/step gate");
+                        if(Post(server.Url+"/stop",server.Token,"{}")!=200)throw new Exception("Stop blocked by action gate");
+                    }finally{release.Set();holder.Join(2000);}
+                }
                 if (Get(server.Url + "/status", null, null) != 401) throw new Exception("Missing token accepted");
                 if (Get(server.Url + "/status", "invalid", null) != 401) throw new Exception("Invalid token accepted");
                 if (Get(server.Url + "/status", server.Token, "http://example.com") != 403) throw new Exception("Browser origin accepted");
@@ -770,6 +990,19 @@ namespace GtaControl {
                 if (Post(server.Url + "/hold", server.Token, "{\"keys\":[\"w\"],\"duration_ms\":651,\"generation\":0}") != 400) throw new Exception("Excessive hold lease accepted");
                 if (Post(server.Url + "/hold", server.Token, "{\"keys\":[\"w\"],\"duration_ms\":500,\"generation\":0}") != 409) throw new Exception("Hold without focused GTA accepted");
                 if (Post(server.Url + "/stop", server.Token, "{}") != 200) throw new Exception("Stop failed");
+                if(Post(server.Url+"/control/arm",server.Token,"{\"kind\":\"keyboard\",\"generation\":0}")!=409)throw new Exception("Arm without focused GTA accepted");
+                if(Post(server.Url+"/control/check",server.Token,"{\"owner_id\":\"old\",\"generation\":0}")!=409)throw new Exception("Old owner accepted");
+                if(Post(server.Url+"/control/check",server.Token,"{\"owner_id\":\"old\",\"generation\":0,\"duration_ms\":50}")!=400)throw new Exception("Untimed gamepad command accepted");
+                if(Post(server.Url+"/control/check",server.Token,"{\"owner_id\":\"old\",\"generation\":0,\"duration_ms\":50,\"source\":{}}")!=400)throw new Exception("Malformed gamepad source accepted");
+                if(Post(server.Url+"/control/release",server.Token,"{\"owner_id\":\"old\"}")!=409)throw new Exception("Wrong neutral acknowledgement accepted");
+                var state=(InputOwner)typeof(Bridge).GetField("owner",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(bridge);
+                var stateGate=typeof(Bridge).GetField("gate",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic).GetValue(bridge);
+                string simulatedOwner;lock(stateGate){simulatedOwner=state.Arm("gamepad",FramePump.Clock.ElapsedMilliseconds);}
+                if(Post(server.Url+"/stop",server.Token,"{}")!=200)throw new Exception("Global revoke failed");
+                lock(stateGate){if(state.State!="revoking")throw new Exception("Gamepad cleared before neutral acknowledgement");MustReject(()=>state.Arm("keyboard",FramePump.Clock.ElapsedMilliseconds));}
+                if(Json.Encode(bridge.Info()).Contains(simulatedOwner))throw new Exception("Status leaked ownership capability");
+                if(Post(server.Url+"/control/release",server.Token,Json.Encode(new{owner_id=simulatedOwner}))!=200)throw new Exception("Neutral acknowledgement failed");
+                lock(stateGate){if(state.Present||state.State!="disarmed")throw new Exception("Neutral owner not cleared");}
                 if (Post(server.Url + "/record/start", server.Token, "{}") != 409) throw new Exception("Recording without focused GTA accepted");
                 if (Post(server.Url + "/record/events", server.Token, "{\"session\":\"wrong\",\"after_sequence\":0}") != 409) throw new Exception("Unknown recording session accepted");
                 if (Post(server.Url + "/record/end", server.Token, "{\"session\":\"wrong\",\"after_sequence\":-1.5}") != 400) throw new Exception("Invalid recording cursor accepted");
@@ -784,6 +1017,7 @@ namespace GtaControl {
             passed.Add("Live HTTP: hold requires session generation, bounded lease and focused GTA");
             passed.Add("Keyboard hook installed; recording requires focused GTA; invalid sessions and cursor rejected; no input collected");
             passed.Add("Navigation status/input validated; commands expire; no game input from navigation");
+            passed.Add("Live HTTP ownership: arm/check fail closed, stop retains gamepad until neutral acknowledgement; no capability in status");
             return Json.Encode(new { ok = true, passed = passed, game_input_tested = false });
         }
         static int Get(string url, string token, string origin) {
@@ -794,12 +1028,15 @@ namespace GtaControl {
             catch (WebException ex) { using (var response = (HttpWebResponse)ex.Response) { if (response == null) throw; return (int)response.StatusCode; } }
         }
         static int Post(string url, string token, string body) {
+            string ignored;return Post(url,token,body,out ignored);
+        }
+        static int Post(string url, string token, string body, out string responseBody) {
             var request = (HttpWebRequest)WebRequest.Create(url); request.Proxy = null; request.Timeout = 2000;
             request.Method = "POST"; request.Headers["Authorization"] = "Bearer " + token;
             byte[] payload = Encoding.UTF8.GetBytes(body); request.ContentLength = payload.Length;
             using (var stream = request.GetRequestStream()) stream.Write(payload, 0, payload.Length);
-            try { using (var response = (HttpWebResponse)request.GetResponse()) return (int)response.StatusCode; }
-            catch (WebException ex) { using (var response = (HttpWebResponse)ex.Response) { if (response == null) throw; return (int)response.StatusCode; } }
+            try { using (var response = (HttpWebResponse)request.GetResponse()) { using(var reader=new StreamReader(response.GetResponseStream()))responseBody=reader.ReadToEnd();return (int)response.StatusCode; } }
+            catch (WebException ex) { using (var response = (HttpWebResponse)ex.Response) { if (response == null) throw;using(var reader=new StreamReader(response.GetResponseStream()))responseBody=reader.ReadToEnd(); return (int)response.StatusCode; } }
         }
     }
 }

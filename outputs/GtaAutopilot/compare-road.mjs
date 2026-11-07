@@ -1,11 +1,3 @@
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
-import {SemanticRoad} from './semantic-road.mjs';
-import {Perception} from './perception.mjs';
-const input=process.argv[2];if(!input)throw Error('Supply an image');
-const bytes=await readFile(input),semantic=await SemanticRoad.load(),old=await Perception.load({roadModel:'yolop'});
-await semantic.analyze(bytes);await old.analyze(bytes);
-const s=await semantic.analyze(bytes),o=await old.analyze(bytes);
-await mkdir(new URL('./runs/road-comparison/',import.meta.url),{recursive:true});
-await writeFile(new URL('./runs/road-comparison/new.jpg',import.meta.url),await semantic.overlay(bytes,s));
-await writeFile(new URL('./runs/road-comparison/old.jpg',import.meta.url),await old.overlay(bytes,o));
-console.log(JSON.stringify({new_ms:s.inference_ms,old_ms:o.inference_ms,class_distribution:[...new Set(s.labels)].map(id=>({id,label:semantic.labels[id],pixels:s.labels.filter(x=>x===id).length}))}));
+// Compatibility only; canonical implementation: experiments/tools/compare-road.mjs
+import "../../packages/protocols/legacy-entry.mjs?from=..%2F..%2Foutputs%2FGtaAutopilot%2Fcompare-road.mjs&to=..%2F..%2Fexperiments%2Ftools%2Fcompare-road.mjs";
+export * from "../../experiments/tools/compare-road.mjs";

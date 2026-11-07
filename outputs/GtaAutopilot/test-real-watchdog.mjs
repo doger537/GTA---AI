@@ -1,6 +1,3 @@
-import assert from 'node:assert/strict';import {GamepadWorker} from './analog-actuator.mjs';import {writeFile} from 'node:fs/promises';import {connect} from '../GtaControl/bridge-client.mjs';
-const pid=Number(process.argv[2]);if(!Number.isInteger(pid)||pid<=0)throw Error('Explicit GTA pid required');const c=await connect(),s=await c.status();c.close();if(!s.foreground||s.busy)throw Error('GTA focus required');
-const w=new GamepadWorker({device:'vgamepad',targetPid:pid});
-try{await w.ready;await w.call('arm');await w.call('command',{steer:.3,throttle:0,brake:0,duration_ms:180});await new Promise(r=>setTimeout(r,80));const applied=await w.call('status');assert.ok(applied.xinput.values.left_x>0);await new Promise(r=>setTimeout(r,220));const expired=await w.call('status');assert.equal(expired.active,false);assert.equal(expired.fault,'lease_expired');assert.ok(Object.values(expired.xinput.values).every(v=>v===0));
-  let blocked=false;try{await w.call('command',{steer:0,throttle:0,brake:0,duration_ms:180});}catch{blocked=true;}assert.equal(blocked,true);const report={passed:true,scope:'Real virtual device; zero pedals; parent intentionally stops command renewal',applied,expired,late_command_blocked:blocked};await writeFile(new URL('./runs/analog/real-watchdog.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
-}finally{await w.close();}
+// Compatibility only; canonical implementation: apps/gta-control/cli/test-real-watchdog.mjs
+import "../../packages/protocols/legacy-entry.mjs?from=..%2F..%2Foutputs%2FGtaAutopilot%2Ftest-real-watchdog.mjs&to=..%2F..%2Fapps%2Fgta-control%2Fcli%2Ftest-real-watchdog.mjs";
+export * from "../../apps/gta-control/cli/test-real-watchdog.mjs";

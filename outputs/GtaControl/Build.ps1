@@ -1,5 +1,4 @@
-$ErrorActionPreference = 'Stop'
-$source = Join-Path $PSScriptRoot 'GtaControl.cs'
-$exe = Join-Path $PSScriptRoot 'GtaControl.exe'
-Add-Type -Path $source -ReferencedAssemblies System.Windows.Forms,System.Drawing,System.Web.Extensions -OutputAssembly $exe -OutputType WindowsApplication
-Write-Host "Built: $exe"
+param([string]$OutputPath = (Join-Path $PSScriptRoot '../../apps/gta-control/GtaControl.exe'))
+# Compatibility entry point. The canonical build is in apps/gta-control.
+& (Join-Path $PSScriptRoot '../../apps/gta-control/Build.ps1') -OutputPath $OutputPath
+if (!$?) { throw 'Canonical bridge build failed' }

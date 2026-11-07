@@ -1,6 +1,3 @@
-import sharp from 'sharp';
-import {readFile} from 'node:fs/promises';
-const c=JSON.parse(await readFile(new URL('./screen-config.json',import.meta.url),'utf8')).speed_roi;
-const img=sharp(process.argv[2]),m=await img.metadata();
-const roi={left:Math.round(c.left*m.width),top:Math.round(c.top*m.height),width:Math.round(c.width*m.width),height:Math.round(c.height*m.height)};
-await img.extract(roi).resize({width:640,kernel:'nearest'}).png().toFile(process.argv[3]);console.log(roi);
+// Compatibility only; canonical implementation: experiments/tools/diagnose-speed.mjs
+import "../../packages/protocols/legacy-entry.mjs?from=..%2F..%2Foutputs%2FGtaAutopilot%2Fdiagnose-speed.mjs&to=..%2F..%2Fexperiments%2Ftools%2Fdiagnose-speed.mjs";
+export * from "../../experiments/tools/diagnose-speed.mjs";

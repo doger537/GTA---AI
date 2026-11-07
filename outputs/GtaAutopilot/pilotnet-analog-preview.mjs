@@ -1,11 +1,3 @@
-// End-to-end saved-history inference -> mock analog API. Pedals always neutral.
-import * as ort from 'onnxruntime-node';import {readFile,writeFile,mkdir} from 'node:fs/promises';import path from 'node:path';
-import {controlVision} from './control-vision.mjs';import {GamepadWorker} from './analog-actuator.mjs';
-const root=path.resolve(process.argv[2]??'trained/pilotnet-integration-v1'),config=JSON.parse(await readFile(path.join(root,'config.json')));
-if(config.architecture!=='pilotnet-categorical-v1')throw Error('PilotNet model required');
-const dataset=config.validation_dataset,examples=(await readFile(path.join(dataset,'examples.jsonl'),'utf8')).trim().split('\n').map(JSON.parse).slice(0,12),vision=controlVision(config.vision),cache=await vision.cache(dataset,examples),session=await ort.InferenceSession.create(path.join(root,'model.onnx'),{executionProviders:['cpu'],intraOpNumThreads:2}),worker=new GamepadWorker(),rows=[];
-try{const ready=await worker.ready;if(ready.physical_device)throw Error('Preview supports mock only');await worker.call('arm');for(const row of examples){
-  const hwc=vision.pack(row.frames.map(f=>cache.get(f))),nchw=new Float32Array(hwc.length),pixels=200*66;for(let p=0;p<pixels;p++)for(let c=0;c<4;c++)nchw[c*pixels+p]=hwc[p*4+c];
-  const out=await session.run({frames:new ort.Tensor('float32',nchw,[1,4,66,200])}),probabilities=[...out.steering.data],desired={steer:.3*(probabilities[2]-probabilities[1]),throttle:0,brake:0,duration_ms:250};await worker.call('command',desired);await new Promise(r=>setTimeout(r,40));rows.push({time_ms:row.time_ms,probabilities,desired,status:await worker.call('status')});
-}await worker.call('stop');const report={scope:'Existing saved histories -> actual ONNX -> mock vgamepad API. Probability difference is an experimental command, not a measured steering angle. No physical device or GTA input.',camera_profile:config.camera_profile,rows,stopped:await worker.call('status')};await mkdir(new URL('./runs/analog/',import.meta.url),{recursive:true});await writeFile(new URL('./runs/analog/pilotnet-preview.json',import.meta.url),JSON.stringify(report,null,2));console.log(JSON.stringify({frames:rows.length,physical_device:false,final:report.stopped,output:'runs/analog/pilotnet-preview.json'}));
-}finally{await worker.close();await session.release();}
+// Compatibility only; canonical implementation: apps/gta-control/cli/pilotnet-analog-preview.mjs
+import "../../packages/protocols/legacy-entry.mjs?from=..%2F..%2Foutputs%2FGtaAutopilot%2Fpilotnet-analog-preview.mjs&to=..%2F..%2Fapps%2Fgta-control%2Fcli%2Fpilotnet-analog-preview.mjs";
+export * from "../../apps/gta-control/cli/pilotnet-analog-preview.mjs";

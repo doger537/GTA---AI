@@ -1,0 +1,5 @@
+// Offline only: frozen frames; no bridge or input imports.
+import{readFile,writeFile,mkdir}from'node:fs/promises';import{createHash}from'node:crypto';import{Perception}from'../../packages/perception/perception.mjs';
+const [annotations,out]=process.argv.slice(2),a=JSON.parse(await readFile(annotations,'utf8'));await mkdir(out,{recursive:false});const vision=await Perception.load({provider:'dml',cameraProfile:'rear'});
+try{for(const f of a.rows){const bytes=await readFile(f.root+'/'+f.file);if(createHash('sha256').update(bytes).digest('hex')!==f.sha256)throw Error('Frame hash mismatch');const p=await vision.analyze(bytes),s=p.semantic;await writeFile(`${out}/${f.set}-${f.file}.json`,JSON.stringify({gridWidth:s.gridWidth,gridHeight:s.gridHeight,rawRoad:[...(s.rawRoad??s.road)],road:[...s.road],obstacle:[...s.obstacle],corridorRoad:[...s.corridorRoad],corridorObstacle:[...s.corridorObstacle],vehicles:p.vehicles}));console.log(f.set,f.file);}}
+finally{await Promise.allSettled([vision.session.release(),vision.semantic.session.release()]);}
