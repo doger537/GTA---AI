@@ -229,7 +229,7 @@ namespace GtaControl {
         public IntPtr Target { get { lock (gate) return target; } set { lock (gate) target = value; } }
         public string Describe() { lock (gate) return "Состояние: " + last + (busy ? " · ввод выполняется" : ""); }
         public object Info() {
-            lock (gate) return new { target_found = Native.IsWindow(target), foreground = target != IntPtr.Zero && Native.GetForegroundWindow() == target, busy = busy, generation = generation, hold_supported = true, ownership_supported = true, decision_deadline_supported=true, input_owner=owner.Kind, input_state=owner.State, status = last, keys = Native.Keys.Keys.ToArray(), max_duration_ms = 5000, keyboard_mode = "SendInput scan codes" };
+            lock (gate) return new { target_found = Native.IsWindow(target), foreground = target != IntPtr.Zero && Native.GetForegroundWindow() == target, busy = busy, generation = generation, hold_supported = true, ownership_supported = true, decision_deadline_supported=true, drive_safety_supported=true, observation_input_supported=true, input_owner=owner.Kind, input_state=owner.State, status = last, keys = Native.Keys.Keys.ToArray(), max_duration_ms = 250, keyboard_mode = "SendInput scan codes" };
         }
         void RequireOwner(string token,string kind,long expectedGeneration,bool reserve=false) {
             if(generation!=expectedGeneration)throw new InvalidOperationException("Control generation changed; explicit arm required");
@@ -250,6 +250,7 @@ namespace GtaControl {
         public object CheckGamepad(string token,long expectedGeneration,int duration,DecisionSource source=null) {
             lock(gate) {
                 RequireOwner(token,"gamepad",expectedGeneration,true);
+                if(duration==0&&source!=null&&(source.Generation!=expectedGeneration||source.CaptureStart>FramePump.Clock.ElapsedMilliseconds||source.Expires-FramePump.Clock.ElapsedMilliseconds<20))throw new InvalidOperationException("Startup observation expired or changed");
                 if(duration!=0)owner.RenewDecision(token,expectedGeneration,FramePump.Clock.ElapsedMilliseconds,duration,source);
                 return new {ok=true,remaining_ms=Math.Max(0,owner.Expires-FramePump.Clock.ElapsedMilliseconds)};
             }
@@ -276,10 +277,12 @@ namespace GtaControl {
                 return String.Join(",", names.Where((name, i) => (Native.GetAsyncKeyState(codes[i]) & 0x8000) != 0));
             }
         }
-        public void Hold(ActionSpec action, long expectedGeneration, long? observationExpires=null,string ownerToken=null) {
+        public void Hold(ActionSpec action, long expectedGeneration, long? observationExpires=null,string ownerToken=null,long? decisionExpires=null) {
             if (action.Duration > 650 || action.Buttons.Length != 0 || action.Dx != 0 || action.Dy != 0) throw new ArgumentException("Hold accepts only keys and a lease of 20..650 ms");
+            if(!observationExpires.HasValue||!decisionExpires.HasValue||decisionExpires.Value>observationExpires.Value)throw new ArgumentException("Capture and decision deadlines required");
             lock (gate) {
                 if(observationExpires.HasValue){long remaining=observationExpires.Value-FramePump.Clock.ElapsedMilliseconds;if(remaining<20||remaining>450)throw new InvalidOperationException("Observation deadline expired or invalid");action.Duration=(int)Math.Min(action.Duration,remaining);}
+                long decisionRemaining=decisionExpires.Value-FramePump.Clock.ElapsedMilliseconds;if(decisionRemaining<20||decisionRemaining>250)throw new InvalidOperationException("Decision deadline expired or invalid");action.Duration=(int)Math.Min(action.Duration,decisionRemaining);
                 RequireFocus();
                 RequireOwner(ownerToken,"keyboard",expectedGeneration);
                 if (generation != expectedGeneration || (Native.GetAsyncKeyState(0x77) & 0x8000) != 0) throw new InvalidOperationException("Control session stopped; explicit restart required");
@@ -289,42 +292,11 @@ namespace GtaControl {
                     string[] added = action.Keys.Except(keys).ToArray();
                     foreach (string key in added) keys.Add(key);
                     Native.Press(added, new string[0], 0, 0);
-                    holding = true; busy = true; holdExpires = FramePump.Clock.ElapsedMilliseconds + action.Duration;if(observationExpires.HasValue)holdExpires=Math.Min(holdExpires,observationExpires.Value);
+                    holding = true; busy = true; holdExpires = Math.Min(FramePump.Clock.ElapsedMilliseconds + action.Duration,Math.Min(observationExpires.Value,decisionExpires.Value));
                     owner.Renew(ownerToken,"keyboard",FramePump.Clock.ElapsedMilliseconds,(int)Math.Max(1,holdExpires-FramePump.Clock.ElapsedMilliseconds));
                     last = "Удержание: " + String.Join(" + ", action.Keys);
                 } catch { Stop(); throw; }
             }
-        }
-        public ActionResult Act(ActionSpec action,string ownerToken=null,long expectedGeneration=-1) {
-            long ticket;
-            lock (gate) {
-                RequireFocus(); if (busy) throw new InvalidOperationException("Another action is running");
-                RequireOwner(ownerToken,"keyboard",expectedGeneration);
-                busy = true; ticket = generation;owner.Renew(ownerToken,"keyboard",FramePump.Clock.ElapsedMilliseconds,action.Duration+50);
-                try {
-                    // Track keys BEFORE injection, so partial failures still release everything.
-                    foreach (string key in action.Keys) keys.Add(key);
-                    foreach (string button in action.Buttons) buttons.Add(button);
-                    Native.Press(action.Keys, action.Buttons, action.Dx, action.Dy);
-                    last = "Ввод: " + String.Join(" + ", action.Keys);
-                } catch { Release(); busy = false; throw; }
-            }
-            bool stopped = false;
-            var watch = Stopwatch.StartNew();
-            try {
-                while (watch.ElapsedMilliseconds < action.Duration) {
-                    Thread.Sleep(10);
-                    lock (gate) {
-                        if (generation != ticket) { stopped = true; break; }
-                        if (Native.GetForegroundWindow() != target || (Native.GetAsyncKeyState(0x77) & 0x8000) != 0) { Stop(); stopped = true; break; }
-                    }
-                }
-            } finally {
-                lock (gate) {
-                    if (generation == ticket) { Release(); busy = false; owner.Renew(ownerToken,"keyboard",FramePump.Clock.ElapsedMilliseconds,250);last = "Команда завершена, клавиши отпущены"; }
-                }
-            }
-            return new ActionResult { interrupted = stopped, elapsed_ms = watch.ElapsedMilliseconds };
         }
         void Release() {
             // Release each key independently; failure on one must not skip the rest.
@@ -337,21 +309,21 @@ namespace GtaControl {
         long hudSequence;
         long observationSequence;
         public ObservationFrame CaptureObservation() {
-            Bitmap bitmap=null;long start,end,seq,gen;var acquireWatch=Stopwatch.StartNew();double captureWorkMs=0;
+            Bitmap bitmap=null;long start,end,seq,gen;string keysBefore,keysAfter;NavigationState navigation;var acquireWatch=Stopwatch.StartNew();double captureWorkMs=0;
             try {
                 lock(gate) {
                     RequireFocus();Native.RECT rect;if(!Native.GetClientRect(target,out rect))throw new InvalidOperationException("GetClientRect failed");
                     var point=new Native.POINT();if(!Native.ClientToScreen(target,ref point))throw new InvalidOperationException("ClientToScreen failed");
                     int width=rect.Right-rect.Left,height=rect.Bottom-rect.Top;
                     if(width<10||height<10||width>10000||height>10000)throw new InvalidOperationException("Invalid client size");
-                    bitmap=new Bitmap(width,height);start=FramePump.Clock.ElapsedMilliseconds;
+                    keysBefore=DrivingKeys();navigation=Navigation.Snapshot();bitmap=new Bitmap(width,height);start=FramePump.Clock.ElapsedMilliseconds;
                     var copyWatch=Stopwatch.StartNew();
                     using(var graphics=Graphics.FromImage(bitmap))graphics.CopyFromScreen(point.X,point.Y,0,0,bitmap.Size,CopyPixelOperation.SourceCopy);
                     captureWorkMs=copyWatch.Elapsed.TotalMilliseconds;
-                    end=FramePump.Clock.ElapsedMilliseconds;RequireFocus();seq=++observationSequence;gen=generation;
+                    end=FramePump.Clock.ElapsedMilliseconds;keysAfter=DrivingKeys();RequireFocus();seq=++observationSequence;gen=generation;
                 }
                 // All three views derive from this one immutable source bitmap.
-                var frame=ObservationFrame.Encode(bitmap,ObservationFrame.ParallelEncoding);frame.StartedMs=start;frame.FinishedMs=end;frame.Sequence=seq;frame.Generation=gen;frame.CaptureWorkMs=captureWorkMs;frame.AcquireMs=acquireWatch.Elapsed.TotalMilliseconds;return frame;
+                var frame=ObservationFrame.Encode(bitmap,ObservationFrame.ParallelEncoding);frame.StartedMs=start;frame.FinishedMs=end;frame.Sequence=seq;frame.Generation=gen;frame.KeysBefore=keysBefore;frame.KeysAfter=keysAfter;frame.Navigation=navigation;frame.CaptureWorkMs=captureWorkMs;frame.AcquireMs=acquireWatch.Elapsed.TotalMilliseconds;return frame;
             }finally{if(bitmap!=null)bitmap.Dispose();}
         }
         public HudFrame CaptureHud() {
@@ -479,12 +451,6 @@ namespace GtaControl {
         }
     }
 
-    sealed class ActionResult {
-        public bool ok = true;
-        public bool interrupted;
-        public long elapsed_ms;
-    }
-
     sealed class CapturedFrame {
         public byte[] Bytes;
         public IntPtr Target;
@@ -498,6 +464,12 @@ namespace GtaControl {
         public bool EncodedParallel;
         public byte[] Road,Hud,Minimap;public int Width,Height;public Rectangle HudRegion,MapRegion;
         public long StartedMs,FinishedMs,Sequence,Generation;
+        public string KeysBefore,KeysAfter;public NavigationState Navigation;
+        public string InputHeaders() {
+            string text="X-Keys-Before: "+KeysBefore+"\r\nX-Keys-After: "+KeysAfter+"\r\n";
+            if(Navigation!=null)text+="X-Nav-Intent: "+Navigation.intent+"\r\nX-Nav-Source: "+Navigation.source+"\r\nX-Nav-Valid: "+(Navigation.valid?"true":"false")+"\r\nX-Nav-Sequence: "+Navigation.sequence+"\r\nX-Nav-Issued-Ms: "+Navigation.issued_ms+"\r\nX-Nav-Expires-Ms: "+Navigation.expires_ms+"\r\n";
+            return text;
+        }
         public double CaptureWorkMs,AcquireMs,EncodeMs,RoadMs,HudMs,MapMs,PackMs;
         public EncodingProfile RoadEncoding=new EncodingProfile();
         public static ObservationFrame Encode(Bitmap source, bool parallel=false) {
@@ -760,6 +732,7 @@ namespace GtaControl {
                             var f=bridge.CaptureObservation();var h=f.HudRegion;var m=f.MapRegion;
                             string metadata="X-Observation-Version: 1\r\nX-Road-Bytes: "+f.Road.Length+"\r\nX-Hud-Bytes: "+f.Hud.Length+"\r\nX-Minimap-Bytes: "+f.Minimap.Length+"\r\n";
                             metadata+="X-Frame-Sequence: "+f.Sequence+"\r\nX-Generation: "+f.Generation+"\r\nX-Capture-Start-Ms: "+f.StartedMs+"\r\nX-Capture-End-Ms: "+f.FinishedMs+"\r\nX-Frame-Age-Ms: "+(FramePump.Clock.ElapsedMilliseconds-f.StartedMs)+"\r\n";
+                            metadata+=f.InputHeaders();
                             metadata+="X-Hud-Full-Width: "+f.Width+"\r\nX-Hud-Full-Height: "+f.Height+"\r\nX-Hud-Left: "+h.Left+"\r\nX-Hud-Top: "+h.Top+"\r\nX-Hud-Width: "+h.Width+"\r\nX-Hud-Height: "+h.Height+"\r\n";
                             metadata+="X-Minimap-Left: "+m.Left+"\r\nX-Minimap-Top: "+m.Top+"\r\nX-Minimap-Width: "+m.Width+"\r\nX-Minimap-Height: "+m.Height+"\r\n";
                             var packed=f.Pack();metadata+=f.TimingHeaders(prepareWatch.Elapsed.TotalMilliseconds);
@@ -787,7 +760,7 @@ namespace GtaControl {
                             if(d.Keys.Any(k=>k!="owner_id"&&k!="generation"&&k!="duration_ms"&&k!="source")||!d.ContainsKey("generation")||!(d["generation"] is int)||d.ContainsKey("duration_ms")&&!(d["duration_ms"] is int))throw new ArgumentException("Owner generation and optional source-timed duration required");
                             DecisionSource decision=null;
                             if(d.ContainsKey("duration_ms")){if((int)d["duration_ms"]<20||(int)d["duration_ms"]>250||!d.ContainsKey("source"))throw new ArgumentException("Source-timed gamepad command required");decision=DecisionSource.Parse(d["source"]);}
-                            else if(d.ContainsKey("source"))throw new ArgumentException("Source without command duration");
+                            else if(d.ContainsKey("source"))decision=DecisionSource.Parse(d["source"]);
                             Reply(stream,200,Json.Encode(bridge.CheckGamepad((string)d["owner_id"],(int)d["generation"],d.ContainsKey("duration_ms")?(int)d["duration_ms"]:0,decision)));return;
                         }
                         if (method == "GET" && path == "/navigation") { Reply(stream,200,Json.Encode(bridge.Navigation.Snapshot()));return; }
@@ -809,32 +782,16 @@ namespace GtaControl {
                             string ownerToken=null;object ownerValue;if(data.TryGetValue("owner_id",out ownerValue)){if(!(ownerValue is string))throw new ArgumentException("String owner_id required");ownerToken=(string)ownerValue;data.Remove("owner_id");}
                             long? deadline=null;object expires;
                             if(data.TryGetValue("observation_expires_ms",out expires)){if(!(expires is int)&&!(expires is long))throw new ArgumentException("Integer observation deadline required");deadline=Convert.ToInt64(expires);data.Remove("observation_expires_ms");}
+                            long? decisionDeadline=null;if(data.TryGetValue("decision_expires_ms",out expires)){if(!(expires is int)&&!(expires is long))throw new ArgumentException("Integer decision deadline required");decisionDeadline=Convert.ToInt64(expires);data.Remove("decision_expires_ms");}
                             var holdSpec=ActionSpec.Parse(data);
                             if(!Monitor.TryEnter(actionGate)){Reply(stream,409,"Another action is running");return;}
-                            try{bridge.Hold(holdSpec,(int)epoch,deadline,ownerToken);Reply(stream,200,"{\"ok\":true}");}finally{Monitor.Exit(actionGate);}return;
+                            try{bridge.Hold(holdSpec,(int)epoch,deadline,ownerToken,decisionDeadline);Reply(stream,200,"{\"ok\":true}");}finally{Monitor.Exit(actionGate);}return;
                         }
                         if (method == "POST" && (path == "/action" || path == "/step")) {
                             if (contentLength < 2) { Reply(stream, 400, "JSON action required"); return; }
-                            ActionSpec spec;
-                            string ownerToken=null;long ownerGeneration=-1;
-                            try { var d=Json.Decode(Encoding.UTF8.GetString(body));object v;if(d!=null&&d.TryGetValue("owner_id",out v)){if(!(v is string))throw new ArgumentException("String owner_id required");ownerToken=(string)v;d.Remove("owner_id");}if(d!=null&&d.TryGetValue("generation",out v)){if(!(v is int))throw new ArgumentException("Integer generation required");ownerGeneration=(int)v;d.Remove("generation");}spec = ActionSpec.Parse(d); }
-                            catch (Exception ex) { Reply(stream, 400, Json.Encode(new { error = ex.Message })); return; }
-                            if (!Monitor.TryEnter(actionGate)) { Reply(stream, 409, "Another action is running"); return; }
-                            try {
-                                var totalWatch = Stopwatch.StartNew();
-                                ActionResult result = bridge.Act(spec,ownerToken,ownerGeneration);
-                                if (path == "/action") Reply(stream, 200, Json.Encode(result));
-                                else {
-                                    // Wait for a capture STARTED after input ended plus a render interval.
-                                    long after = FramePump.Clock.ElapsedMilliseconds + 60;
-                                    var captureWatch = Stopwatch.StartNew();
-                                    CapturedFrame frame = frames.Get(after);
-                                    long captureMs = captureWatch.ElapsedMilliseconds;
-                                    string metadata = "X-Action-Ms: " + result.elapsed_ms + "\r\nX-Capture-Ms: " + captureMs + "\r\nX-Total-Ms: " + totalWatch.ElapsedMilliseconds + "\r\nX-Action-Interrupted: " + (result.interrupted ? "true" : "false") + "\r\n";
-                                    ReplyFrame(stream, frame, metadata);
-                                }
-                            } finally { Monitor.Exit(actionGate); }
-                            return;
+                            try { var d=Json.Decode(Encoding.UTF8.GetString(body));if(d!=null){d.Remove("owner_id");d.Remove("generation");}ActionSpec.Parse(d); }
+                            catch(Exception ex){Reply(stream,400,Json.Encode(new{error=ex.Message}));return;}
+                            Reply(stream,409,"Legacy action/step control retired; use a DriveSafetyGate session");return;
                         }
                         Reply(stream, 404, "Unknown endpoint");
                     } catch (InvalidOperationException ex) { responseKeepAlive = false; TryReply(stream, 409, ex.Message); }
@@ -959,9 +916,12 @@ namespace GtaControl {
                 }
             }
             passed.Add("Single-source observation packs JPEG road and native lossless HUD/minimap");
+            var inputMetadata=new ObservationFrame{KeysBefore="w",KeysAfter="w,a",Navigation=new NavigationState{valid=true,intent="left",source="synthetic-test",sequence=8,issued_ms=100,expires_ms=900}};
+            string inputHeaders=inputMetadata.InputHeaders();if(!inputHeaders.Contains("X-Keys-Before: w\r\n")||!inputHeaders.Contains("X-Keys-After: w,a\r\n")||!inputHeaders.Contains("X-Nav-Intent: left\r\n")||!inputHeaders.Contains("X-Nav-Issued-Ms: 100\r\n"))throw new Exception("Observation input metadata changed");
+            passed.Add("Observation preserves source keyboard snapshots and navigation timeline; synthetic metadata only");
             var bridge = new Bridge();
             foreach(long deadline in new[]{FramePump.Clock.ElapsedMilliseconds-1,FramePump.Clock.ElapsedMilliseconds+10000}){
-                try{bridge.Hold(new ActionSpec(),0,deadline);throw new Exception("Invalid observation deadline accepted");}
+                try{bridge.Hold(new ActionSpec(),0,deadline,null,deadline);throw new Exception("Invalid observation deadline accepted");}
                 catch(InvalidOperationException ex){if(!ex.Message.Contains("Observation deadline"))throw;}
             }
             using (var recorder = new ManualInputRecorder(bridge))
@@ -986,9 +946,12 @@ namespace GtaControl {
                 if (Get(server.Url + "/frame", server.Token, null) != 409) throw new Exception("Compact capture without GTA allowed");
                 if (Post(server.Url + "/step", server.Token, "{\"duration_ms\":5001}") != 400) throw new Exception("Invalid step accepted");
                 if (Post(server.Url + "/step", server.Token, "{\"duration_ms\":20}") != 409) throw new Exception("Step without GTA allowed");
+                string retiredResponse;if(Post(server.Url+"/action",server.Token,"{\"keys\":[\"w\"],\"duration_ms\":50}",out retiredResponse)!=409||!retiredResponse.Contains("retired"))throw new Exception("Legacy raw input still available");
                 if (Post(server.Url + "/hold", server.Token, "{\"keys\":[\"w\"],\"duration_ms\":500}") != 400) throw new Exception("Hold without generation accepted");
                 if (Post(server.Url + "/hold", server.Token, "{\"keys\":[\"w\"],\"duration_ms\":651,\"generation\":0}") != 400) throw new Exception("Excessive hold lease accepted");
-                if (Post(server.Url + "/hold", server.Token, "{\"keys\":[\"w\"],\"duration_ms\":500,\"generation\":0}") != 409) throw new Exception("Hold without focused GTA accepted");
+                if (Post(server.Url + "/hold", server.Token, "{\"keys\":[\"w\"],\"duration_ms\":500,\"generation\":0}") != 400) throw new Exception("Hold without focused GTA accepted");
+                var timedHold=Json.Encode(new{keys=new[]{"w"},duration_ms=50,generation=0,observation_expires_ms=FramePump.Clock.ElapsedMilliseconds+450,decision_expires_ms=FramePump.Clock.ElapsedMilliseconds+250});
+                if(Post(server.Url+"/hold",server.Token,timedHold)!=409)throw new Exception("Timed hold without focused GTA accepted");
                 if (Post(server.Url + "/stop", server.Token, "{}") != 200) throw new Exception("Stop failed");
                 if(Post(server.Url+"/control/arm",server.Token,"{\"kind\":\"keyboard\",\"generation\":0}")!=409)throw new Exception("Arm without focused GTA accepted");
                 if(Post(server.Url+"/control/check",server.Token,"{\"owner_id\":\"old\",\"generation\":0}")!=409)throw new Exception("Old owner accepted");
@@ -1018,6 +981,7 @@ namespace GtaControl {
             passed.Add("Keyboard hook installed; recording requires focused GTA; invalid sessions and cursor rejected; no input collected");
             passed.Add("Navigation status/input validated; commands expire; no game input from navigation");
             passed.Add("Live HTTP ownership: arm/check fail closed, stop retains gamepad until neutral acknowledgement; no capability in status");
+            passed.Add("Legacy action/step retired and keyboard hold requires both capture and fixed decision deadlines");
             return Json.Encode(new { ok = true, passed = passed, game_input_tested = false });
         }
         static int Get(string url, string token, string origin) {

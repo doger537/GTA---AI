@@ -17,6 +17,7 @@ export async function connect(configFile = new URL('../../apps/gta-control/conne
 
 export class GtaClient {
   constructor(config) {
+    Object.defineProperty(this,'physical_input',{value:true});
     this.url = config.url;
     this.token = config.token;
     this.agent = new http.Agent({ keepAlive: true, maxSockets: 2, maxFreeSockets: 1 });
@@ -82,7 +83,7 @@ export class GtaClient {
     const map=Object.fromEntries(['left','top','width','height'].map(k=>[k,Number(h['x-minimap-'+k])]));
     const valid=r=>Object.values(r).every(Number.isInteger)&&r.left>=0&&r.top>=0&&r.width>0&&r.height>0&&r.left+r.width<=geometry.full_width&&r.top+r.height<=geometry.full_height;
     if(!valid(geometry)||!valid(map)||geometry.full_width<10||geometry.full_height<10)throw Error('Invalid observation geometry');
-    const part=(start,end,mimeType)=>({...timing,bytes:packed.subarray(start,end),mimeType});
+    const part=(start,end,mimeType)=>({...timing,generation,bytes:packed.subarray(start,end),mimeType});
     return {...timing,generation,source:'single_capture',capture_skew_ms:0,encoding_parallel:h['x-obs-encoding-parallel']==='true',server_timing:observationTiming(h),road:part(0,lengths[0],'image/jpeg'),hud:{...part(lengths[0],lengths[0]+lengths[1],'image/png'),hud:geometry},minimap:{...part(lengths[0]+lengths[1],packed.length,'image/png'),region:map}};
   }
   async hud() { const r=await this.request('/hud'),frame=this.image(r),h=r.headers;return {...frame,hud:{full_width:Number(h['x-hud-full-width']),full_height:Number(h['x-hud-full-height']),left:Number(h['x-hud-left']),top:Number(h['x-hud-top']),width:Number(h['x-hud-width']),height:Number(h['x-hud-height'])}}; }

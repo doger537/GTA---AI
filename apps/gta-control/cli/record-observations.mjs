@@ -2,6 +2,7 @@
 import {mkdir,writeFile,open} from 'node:fs/promises';import{fileURLToPath}from'node:url';
 import {connect,frameAge} from '../../../packages/protocols/bridge-client.mjs';import {playRecordingSound} from '../../../packages/protocols/recording-sounds.mjs';
 import {waitRecordingFocus,recordingReadiness} from '../../../packages/protocols/recording-readiness.mjs';
+import {validateObservation,observationGeometry} from '../../../packages/protocols/observation-stream.mjs';
 const arg=(key,fallback)=>process.argv.find(a=>a.startsWith('--'+key+'='))?.split('=')[1]??fallback;
 const seconds=Number(arg('seconds',120)),fps=Number(arg('fps',8)),camera=arg('camera','rear'),role=arg('role','development'),waitSeconds=Number(arg('wait',60));
 if(!Number.isFinite(seconds)||seconds<1||seconds>600||!Number.isFinite(fps)||fps<1||fps>15||!Number.isFinite(waitSeconds)||waitSeconds<1||waitSeconds>900||!['rear','hood'].includes(camera)||!['development','validation'].includes(role))throw Error('Use seconds=1..600, wait=1..900, fps=1..15, camera=rear|hood, role=development|validation');
@@ -28,7 +29,7 @@ try{
       if(/HTTP 409:.*GTA must be in foreground/.test(e.message)){const after=await client.status();if(!recordingReadiness(after,generation)){captureFocusSkips++;if(!paused)focusPauses++;paused=true;stableSince=null;continue;}}
       throw e;
     }
-    const shape=JSON.stringify(observation.hud.hud);
+    validateObservation(observation,{generation});const shape=observationGeometry(observation);
     if(observation.generation!==generation)throw Error('Capture generation changed');if(geometry&&geometry!==shape)throw Error('Window/HUD geometry changed');geometry=shape;
     if(previous&&(observation.sequence<=previous.sequence||observation.capture_start_ms<=previous.time))throw Error('Non-increasing capture timeline');
     if(frameAge(observation)>450)throw Error('Observation already stale at recording');
@@ -38,5 +39,5 @@ try{
     await new Promise(r=>setTimeout(r,Math.max(1,1000/fps-(performance.now()-tick))));
   }
 }catch(e){error=e.message;process.exitCode=1;}
-finally{client.close();if(log)await log.close();await playRecordingSound(error||cancelled?'interrupted':'complete');await writeFile(new URL('session.json',root),JSON.stringify({...session,status:error?'error':cancelled?'cancelled':'complete',frames:count,error,focus_pauses:focusPauses,capture_focus_skips:captureFocusSkips,focus_policy:'Pause passive capture while unfocused; stop generation always aborts. Never capture other apps.',hud_geometry:geometry?JSON.parse(geometry):null},null,2));}
+finally{client.close();if(log)await log.close();await playRecordingSound(error||cancelled?'interrupted':'complete');await writeFile(new URL('session.json',root),JSON.stringify({...session,status:error?'error':cancelled?'cancelled':'complete',frames:count,error,focus_pauses:focusPauses,capture_focus_skips:captureFocusSkips,focus_policy:'Pause passive capture while unfocused; stop generation always aborts. Never capture other apps.',observation_geometry:geometry?JSON.parse(geometry):null,hud_geometry:geometry?JSON.parse(geometry).hud:null},null,2));}
 console.log(JSON.stringify({folder:fileURLToPath(root),frames:count,error,role,game_input_sent:false}));

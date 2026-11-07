@@ -2,6 +2,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
+const requested=process.argv[2]??'status';if(['action','step','hold'].includes(requested))throw Error('Legacy raw control retired: DriveSafetyGate required');
 const config = JSON.parse((await readFile(new URL('../connection.json', import.meta.url), 'utf8')).replace(/^\uFEFF/, ''));
 const [command = 'status', argument, output] = process.argv.slice(2);
 const headers = { Authorization: `Bearer ${config.token}` };

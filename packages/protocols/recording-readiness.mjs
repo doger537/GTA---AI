@@ -1,7 +1,7 @@
 // Read-only startup gate; never changes focus or sends input.
 export function recordingReadiness(status,generation){
   if(status.generation!==generation)throw Error(`Control generation changed (${generation} -> ${status.generation})`);
-  if(status.busy)throw Error('Automated input is active');
+  if(status.busy||status.input_owner)throw Error('Automated input is active');
   return status.target_found&&status.foreground;
 }
 export async function waitRecordingFocus(client,generation,{timeoutMs=60000,stableMs=400,cancelled=()=>false,clock=()=>performance.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms))}={}){

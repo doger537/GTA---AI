@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "mode": "shadow",
+  "calibration_bundle": null,
+  "vehicle_id": null,
+  "camera_profile": "unknown",
+  "note": "No verified calibration bundle is installed. Do not change flags to manufacture calibration or enable driving."
+}

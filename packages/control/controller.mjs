@@ -22,7 +22,7 @@ export class Controller {
     const ttc=s.obstacles.filter(o=>Math.abs(o.lateral_m-path.offset_m)<1.8&&o.closing_mps>0).map(o=>o.distance_m/o.closing_mps);
     if(ttc.some(t=>t<2.5))return fail('collision_time_low');
     const curve=Number.isFinite(path.curvature)?Math.abs(path.curvature):0;
-    const targetSpeed=Math.min(8,Math.sqrt(1.5/Math.max(curve,.001)),Math.sqrt(Math.max(0,2*a*(path.clearance_m-3))));
+    const targetSpeed=Math.min(8,Number.isFinite(s.max_speed_mps)&&s.max_speed_mps>0?s.max_speed_mps:8,Math.sqrt(1.5/Math.max(curve,.001)),Math.sqrt(Math.max(0,2*a*(path.clearance_m-3))));
     const targetSteer=clamp(path.heading_error_rad*.9+Math.atan2(path.offset_m,Math.max(5,v*1.2)),-.6,.6);
     this.steer+=clamp(targetSteer-this.steer,-.7*dt,.7*dt);
     const speedError=targetSpeed-v;

@@ -76,6 +76,12 @@ test('An old bridge cannot silently fall back to unowned keyboard actions',async
   let sent=0;const a=new LiveActuator({hold:async()=>{sent++;},action:async()=>{sent++;},stop:async()=>{sent++;}});
   a.update({throttle:1,brake:0,steer:0},commandSource());await a.start();assert.match(a.fault,/Ownership-aware/);assert.equal(sent,0);
 });
+
+test('hold acknowledgement retains the source actually sent when a newer command arrives during await',async()=>{
+ let a;const c={status:async()=>({hold_supported:true,generation:12}),hold:async()=>{a.update({throttle:0,brake:0,steer:0},{...commandSource(),sequence:2,capture_start_ms:1100});a.running=false;},stop:async()=>{}};
+ a=new LiveActuator(ownedClient(c));a.update({throttle:1,brake:0,steer:0},commandSource());await a.start();
+ assert.equal(a.actions.length,1);assert.equal(a.actions[0].sequence,1);assert.equal(a.actions[0].capture_start_ms,1000);
+});
 test('A revoked hold session does not resume or send a later brake command',async()=>{
   let brakes=0;const a=new LiveActuator(ownedClient({status:async()=>({hold_supported:true,generation:12}),hold:async()=>{throw Error('GTA Control HTTP 409: Control session stopped');},action:async()=>{brakes++;},stop:async()=>{}}));
   a.update({throttle:1,brake:0,steer:0},commandSource());await a.start();assert.match(a.fault,/interrupted/);assert.equal(brakes,0);

@@ -2,6 +2,7 @@ import {mkdir,writeFile,open} from 'node:fs/promises';
 import {connectRecordingBridge} from '../../../packages/protocols/recording-bridge.mjs';
 import {playRecordingSound} from '../../../packages/protocols/recording-sounds.mjs';
 import {RECORDING_CAMERAS} from '../../../packages/perception/recording-camera.mjs';
+import {ObservationStream} from '../../../packages/protocols/observation-stream.mjs';
 const camera=process.argv.find(x=>x.startsWith('--camera='))?.split('=')[1]??'unknown';
 if(!RECORDING_CAMERAS.includes(camera))throw Error('Camera must be unknown, rear or hood');
 const seconds=Number(process.argv.find(x=>x.startsWith('--seconds='))?.split('=')[1]??120);
@@ -32,9 +33,10 @@ try{
   log=await open(new URL('samples.jsonl',root),'wx');started=performance.now();
   console.log('ИДЁТ ЗАПИСЬ — '+seconds+' секунд. Оставайся в GTA до мелодии завершения.');
   startCue=playRecordingSound('start');
+  const stream=new ObservationStream(client);
   while(!cancelled&&performance.now()-started<seconds*1000){
     const tick=performance.now(),s=await client.status();if(!s.foreground||s.busy){reason='focus_lost_or_automation_active';break;}
-    const f=await client.frame();if(f.sequence===last){await sleep(10);continue;}last=f.sequence;
+    const o=await stream.read(),f=o.road;last=f.sequence;
     const input=await collectEvents();if(!input.active){reason=input.end_reason??'input_recording_stopped';break;}
     if(f.capture_start_ms<inputSession.started_ms)continue;
     if(!f.keys_before||!f.keys_after||!Number.isFinite(f.capture_start_ms))throw Error('Updated GTA Control required');

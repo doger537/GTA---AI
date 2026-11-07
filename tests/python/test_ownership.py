@@ -115,7 +115,7 @@ class BrokerProtocol(unittest.TestCase):
                 body = self.rfile.read(int(self.headers.get('Content-Length', 0)))
                 payload = json.loads(body) if body else None
                 requests.append((self.path, payload, self.headers.get('Authorization')))
-                result = dict(ownership_supported=True, decision_deadline_supported=True, generation=7) if self.path == '/status' else dict(owner_id='capability', generation=7, remaining_ms=250)
+                result = dict(ownership_supported=True, decision_deadline_supported=True, drive_safety_supported=True, generation=7) if self.path == '/status' else dict(owner_id='capability', generation=7, remaining_ms=250)
                 data = json.dumps(result).encode()
                 self.send_response(200)
                 self.send_header('Content-Length', str(len(data)))

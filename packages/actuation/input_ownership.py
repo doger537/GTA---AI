@@ -33,6 +33,7 @@ class InputFileGuard:
 
 
 class BridgeOwner:
+    requires_gate = True
     def __init__(self, connection_file, target_pid, guard_factory=InputFileGuard):
         config = json.loads(Path(connection_file).read_text(encoding='utf-8-sig'))
         url = urlsplit(config['url'])
@@ -63,7 +64,7 @@ class BridgeOwner:
         self.guard = self.guard_factory()
         try:
             status = self.request('/status')
-            if not status.get('ownership_supported') or not status.get('decision_deadline_supported'):
+            if not status.get('ownership_supported') or not status.get('decision_deadline_supported') or not status.get('drive_safety_supported'):
                 raise RuntimeError('Ownership-aware source-deadline bridge required')
             grant = self.request('/control/arm', dict(kind='gamepad', generation=status['generation'], target_pid=self.pid))
             self.owner_id, self.generation = grant['owner_id'], grant['generation']
@@ -79,7 +80,7 @@ class BridgeOwner:
         if duration_ms is not None:
             payload['duration_ms'] = duration_ms
             if source is None:raise ValueError('Decision source required for gamepad command')
-            payload['source'] = source
+        if source is not None:payload['source'] = source
         return self.request('/control/check', payload)
 
     def release_neutral(self):

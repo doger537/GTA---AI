@@ -37,6 +37,6 @@ jobs:
           if ($process.ExitCode -ne 0 -or !(Test-Path -LiteralPath $report)) { throw 'Self-test failed' }
           $result = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
           if (!$result.ok -or $result.game_input_tested) { throw 'Invalid self-test result' }
-      - name: Python ownership and decision-deadline regressions (stdlib only)
+      - name: Python ownership, source deadline and drive gate (stdlib only)
         shell: powershell
-        run: python -m unittest tests.python.test_ownership tests.python.test_decision_deadline
+        run: python -m unittest tests.python.test_ownership tests.python.test_decision_deadline tests.python.test_drive_safety

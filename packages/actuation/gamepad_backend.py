@@ -4,9 +4,26 @@ _project_sys.path.insert(0, str(_ProjectPath(__file__).resolve().parents[2]))
 """Leased analog backend. No device is created unless --device=vgamepad is explicit."""
 import argparse, json, math, sys, threading, time
 
+def validate_authorization(permit,purpose,scope,source=None,command=None):
+    if not isinstance(permit,dict) or set(permit)!={'scope','mode','kind','source','command'} or permit['scope']!=scope or permit['mode']!=purpose or permit['kind']!='gamepad':raise ValueError('DriveSafetyGate authorization required')
+    tag=permit['source']
+    if not isinstance(tag,dict) or set(tag)!={'sequence','generation','capture_start_ms','decision_expires_ms'} or any(type(v) is not int or not 0<=v<=2**53-1 for v in tag.values()) or tag['capture_start_ms']>2**53-451 or not tag['capture_start_ms']<tag['decision_expires_ms']<=tag['capture_start_ms']+450:raise ValueError('DriveSafetyGate source metadata invalid')
+    if scope=='startup' and permit['command'] is not None:raise ValueError('Startup is not a movement command')
+    if scope=='command':
+        p=permit.get('source')
+        if not isinstance(p,dict) or not isinstance(source,dict) or any(p.get(k)!=source.get(k) for k in ['sequence','generation','capture_start_ms']) or type(p.get('decision_expires_ms')) is not int or source.get('decision_expires_ms',float('inf'))>p['decision_expires_ms']:raise ValueError('DriveSafetyGate source mismatch')
+        approved=permit.get('command')
+        if not isinstance(command,dict) or not isinstance(approved,dict) or set(approved)!={'steer','throttle','brake'} or any(type(v) not in (int,float) or not math.isfinite(v) for v in approved.values()) or approved!={k:command.get(k) for k in ['steer','throttle','brake']}:raise ValueError('DriveSafetyGate command mismatch')
+        if purpose=='diagnostic' and (command['throttle']!=0 or command['brake']!=0 or abs(command['steer'])>.4):raise ValueError('Diagnostic pedals or steering rejected')
+        if purpose=='calibration' and (command['throttle']>.5 or command['brake']>.45 or abs(command['steer'])>.35):raise ValueError('Calibration command limit')
+        if purpose=='autonomous' and (command['throttle']>.45 or abs(command['steer'])>.6):raise ValueError('Autonomous command limit')
+    return permit['source']
+
 class AnalogController:
-    def __init__(self,pad,safety=lambda:True,clock=time.monotonic,owner=None):
+    def __init__(self,pad,safety=lambda:True,clock=time.monotonic,owner=None,purpose=None):
         if owner is None and not isinstance(pad,MockPad):raise ValueError('Real pad requires source-deadline ownership')
+        if getattr(owner,'requires_gate',False) and purpose not in ['autonomous','calibration','diagnostic']:raise ValueError('DriveSafetyGate purpose required')
+        self.purpose=purpose;self.armed_at=0
         self.pad=pad;self.safety=safety;self.clock=clock;self.owner=owner;self.lock=threading.RLock();self.active=False;self.fault=None;self.command=None;self.source=None;self.source_deadline=None;self.deadline=0;self.last=clock();self.values=dict(steer=0.,throttle=0.,brake=0.);self.neutral()
     def neutral(self):
         self.values=dict(steer=0.,throttle=0.,brake=0.);self.pad.reset();self.pad.update()
@@ -14,14 +31,16 @@ class AnalogController:
         with self.lock:
             self.active=False;self.command=None;self.fault=reason;self.neutral()
             if self.owner is not None:self.owner.release_neutral()
-    def arm(self):
+    def arm(self,authorization=None):
         with self.lock:
+            source=validate_authorization(authorization,self.purpose,'startup') if self.purpose is not None else None
             if not self.safety():raise ValueError('GTA focus required, F8 must be released')
             if self.owner is not None:
                 if self.owner.owner_id is None:self.owner.reserve()
-                self.owner.check()
+                if source is None:self.owner.check()
+                else:self.owner.check(source=source)
                 if not self.safety():self.stop('focus_lost_or_f8');raise ValueError('Focus/F8 changed during ownership check')
-            self.neutral();self.active=True;self.command=None;self.source=None;self.source_deadline=None;self.fault=None;self.last=self.clock();self.deadline=self.last+.25
+            self.neutral();self.active=True;self.command=None;self.source=None;self.source_deadline=None;self.fault=None;self.last=self.clock();self.armed_at=self.last;self.deadline=self.last+.25
     def validate_source(self,source):
         names={'sequence','generation','capture_start_ms','decision_expires_ms'}
         if not isinstance(source,dict) or set(source)!=names or any(type(v) is not int or not 0<=v<=2**53-1 for v in source.values()):raise ValueError('Valid integer decision source required')
@@ -32,9 +51,14 @@ class AnalogController:
             if source['sequence']==self.source['sequence']:
                 if source['capture_start_ms']!=self.source['capture_start_ms'] or source['decision_expires_ms']>self.source['decision_expires_ms']:raise ValueError('Same-source decision cannot be extended or changed')
             elif source['capture_start_ms']<=self.source['capture_start_ms']:raise ValueError('Non-increasing decision capture time')
-    def set(self,data,source=None):
+    def set(self,data,source=None,authorization=None):
         with self.lock:
             if not self.active:raise ValueError('Explicit arm required')
+            if self.purpose is not None:
+                try:
+                    validate_authorization(authorization,self.purpose,'command',source,data)
+                    if self.clock()-self.armed_at>{'diagnostic':1.,'calibration':2.5,'autonomous':15.}[self.purpose]:raise ValueError('Bounded session expired')
+                except Exception:self.stop('drive_gate_rejected');raise
             if self.clock()>=self.deadline:self.stop('lease_expired');raise ValueError('Lease expired; arm again')
             if not self.safety():self.stop('focus_lost_or_f8');raise ValueError('Focus lost or F8')
             if set(data)!={'steer','throttle','brake','duration_ms'}:raise ValueError('Unexpected command fields')
@@ -63,6 +87,7 @@ class AnalogController:
                 if self.source is not None and source['sequence']==self.source['sequence']:candidate=min(candidate,self.source_deadline)
                 if self.clock()>=candidate:self.stop('decision_expired');raise ValueError('Decision expired before application')
                 self.source=source.copy();self.source_deadline=candidate
+            if self.purpose is not None:candidate=min(candidate,self.armed_at+{'diagnostic':1.,'calibration':2.5,'autonomous':15.}[self.purpose])
             self.command=data.copy();self.deadline=candidate
     def tick(self):
         with self.lock:
@@ -124,10 +149,13 @@ def windows_safety(pid):
     return safe
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--device',choices=['mock','vgamepad'],default='mock');p.add_argument('--target-pid',type=int);p.add_argument('--connection');args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--device',choices=['mock','vgamepad'],default='mock');p.add_argument('--target-pid',type=int);p.add_argument('--connection');p.add_argument('--purpose',choices=['autonomous','calibration','diagnostic']);args=p.parse_args()
     owner=None
     if args.device=='vgamepad':
-        if not args.target_pid or args.target_pid<=0 or not args.connection:raise ValueError('Explicit GTA process id and bridge connection file required')
+        if not args.target_pid or args.target_pid<=0 or not args.connection or not args.purpose:raise ValueError('Explicit GTA process id, bridge connection and safety purpose required')
+        preparation=json.loads(sys.stdin.readline() or '{}')
+        if preparation.get('op')!='prepare':raise ValueError('DriveSafetyGate preparation required before device creation')
+        startup_source=validate_authorization(preparation.get('authorization'),args.purpose,'startup')
         safety=windows_safety(args.target_pid)
         if not safety():raise ValueError('Focus GTA and release F8 before creating the device')
         import vgamepad as vg
@@ -136,7 +164,7 @@ def main():
         from packages.actuation.xinput_readback import initialize_neutral,read_state
         def permission():
             if not safety():raise ValueError('GTA focus/F8 changed during initialization')
-            owner.check()
+            owner.check(source=startup_source)
             if not safety():raise ValueError('GTA focus/F8 changed during initialization')
         pad=None
         try:
@@ -145,7 +173,7 @@ def main():
             if pad is not None:pad.reset();pad.update()
             owner.release_neutral();raise
     else:pad=MockPad();safety=lambda:True
-    controller=AnalogController(pad,safety,owner=owner);done=threading.Event()
+    controller=AnalogController(pad,safety,owner=owner,purpose=args.purpose if args.device=='vgamepad' else None);done=threading.Event()
     def watchdog():
         while not done.wait(.02):
             try:controller.tick()
@@ -160,11 +188,12 @@ def main():
             try:
                 if done.is_set():raise ValueError('Watchdog unavailable')
                 request=json.loads(line);op=request.get('op')
-                if op=='arm':controller.arm()
-                elif op=='command':controller.set(request['command'],request.get('source'))
+                if op=='arm':controller.arm(request.get('authorization'))
+                elif op=='command':controller.set(request['command'],request.get('source'),request.get('authorization'))
                 elif op=='stop':controller.stop()
                 elif op=='pause_pulse':
                     if args.device!='vgamepad':raise ValueError('Pause diagnostic requires the real device')
+                    if args.purpose!='diagnostic':raise ValueError('Pause requires diagnostic safety mode')
                     with controller.lock:
                         if not controller.active or controller.command is None or controller.source is None or not safety() or controller.clock()>=controller.deadline:raise ValueError('Active source-timed lease required')
                         owner.check()

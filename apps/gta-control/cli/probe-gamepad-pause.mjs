@@ -1,8 +1,2 @@
-// Reversible START-button diagnostic. No gas, brake or steering.
-import {GamepadWorker} from '../../../packages/actuation/analog-actuator.mjs';import {DecisionLease} from '../../../packages/actuation/decision-lease.mjs';import {connect,frameAge} from '../../../packages/protocols/bridge-client.mjs';import {writeFile,mkdir} from 'node:fs/promises';
-const pid=Number(process.argv[2]);if(!Number.isInteger(pid)||pid<=0)throw Error('Explicit GTA pid required');
-const c=await connect(),initial=await c.status();if(!initial.foreground||initial.busy)throw Error('Focus GTA and disable automated input');
-const w=new GamepadWorker({device:'vgamepad',targetPid:pid}),root=new URL('../../../experiments/runs/analog/pause-probe/',import.meta.url);await mkdir(root,{recursive:true});
-async function capture(name){const f=await c.frame();await writeFile(new URL(name+'.jpg',root),f.bytes);}
-async function pulse(){const s=await c.status();if(!s.foreground||s.generation!==initial.generation)throw Error('External interruption');const o=await c.observation(),lease=new DecisionLease({leaseMs:200});if(o.generation!==initial.generation)throw Error('Observation session changed');lease.update({...o,age_ms:frameAge(o.road)});await w.call('arm');await w.call('command',{steer:0,throttle:0,brake:0,duration_ms:200},lease.wireSource());await w.call('pause_pulse');await w.call('stop');}
-try{await w.ready;await capture('before');await pulse();await new Promise(r=>setTimeout(r,500));await capture('after');console.log(JSON.stringify({phase:'single_start_pulse',images:root.pathname}));}finally{await w.close();c.close();}
+import {runOperatorDiagnostic} from '../../../packages/control/operator-cli.mjs';
+await runOperatorDiagnostic('pause',process.argv.slice(2));
