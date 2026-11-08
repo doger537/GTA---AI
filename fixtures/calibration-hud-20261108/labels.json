@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "scope": "Real native PNG development cases, visually labelled before OCR. Diagnostic regressions and positive controls; not independent validation, metric scale or vehicle calibration.",
+  "geometry": {
+    "full_width": 1904,
+    "full_height": 993,
+    "left": 1561,
+    "top": 754,
+    "width": 248,
+    "height": 140
+  },
+  "cases": [
+    {
+      "id": "clear-zero",
+      "file": "clear-zero.png",
+      "sha256": "ecc51d3f2756a2595afd7577880314a9d7c5a1f6f6dbd5ec58b1050475df55fb",
+      "speed_kmh": 0,
+      "gear": "1",
+      "recording": "2026-11-08T15-38-57.504Z",
+      "source_file": "000000-hud.png",
+      "source_role": "development",
+      "source_sequence": 2,
+      "capture_start_ms": 31865,
+      "review_source": "assistant_visual_review_of_source_contact_sheets_before_OCR"
+    },
+    {
+      "id": "six",
+      "file": "six.png",
+      "sha256": "9cd758fd00c7f2f6c8adf2fb7b03bf13090b33230186bdb72aaaf7c201730c46",
+      "speed_kmh": 6,
+      "gear": "1",
+      "recording": "2026-11-08T15-49-36.249Z",
+      "source_file": "000005-hud.png",
+      "source_role": "development",
+      "source_sequence": 718,
+      "capture_start_ms": 671380,
+      "review_source": "assistant_visual_review_of_source_HUD_contact_sheets_before_OCR"
+    },
+    {
+      "id": "eight",
+      "file": "eight.png",
+      "sha256": "560395590c8a2bde6f98bf34237c0ee6b899aff28a19d4a95fbf6f0cab181d36",
+      "speed_kmh": 8,
+      "gear": "1",
+      "recording": "2026-11-08T15-49-36.249Z",
+      "source_file": "000027-hud.png",
+      "source_role": "development",
+      "source_sequence": 740,
+      "capture_start_ms": 674459,
+      "review_source": "assistant_visual_review_of_source_HUD_contact_sheets_before_OCR"
+    },
+    {
+      "id": "seven",
+      "file": "seven.png",
+      "sha256": "64ee0fad4bc081c505b0eddbf667e2ce50ea78f888c7e0e0b94d95292f9dee2c",
+      "speed_kmh": 7,
+      "gear": "1",
+      "recording": "2026-11-08T15-49-36.249Z",
+      "source_file": "000054-hud.png",
+      "source_role": "development",
+      "source_sequence": 767,
+      "capture_start_ms": 678230,
+      "review_source": "assistant_visual_review_of_source_HUD_contact_sheets_before_OCR"
+    },
+    {
+      "id": "shaded-zero",
+      "file": "shaded-zero.png",
+      "sha256": "1e89a6198fc7b772267716e4a6db9bee9878a668cb045739c03e42c7a7c2c6c3",
+      "speed_kmh": 0,
+      "gear": "1",
+      "recording": "2026-11-08T15-49-36.249Z",
+      "source_file": "000142-hud.png",
+      "source_role": "development",
+      "source_sequence": 855,
+      "capture_start_ms": 690515,
+      "review_source": "assistant_visual_review_of_source_HUD_contact_sheets_before_OCR"
+    },
+    {
+      "id": "reverse-zero",
+      "file": "reverse-zero.png",
+      "sha256": "015384887fb445035db5baa35b5a437bbc41d6169c556b53fb94db03fdfabffa",
+      "speed_kmh": 0,
+      "gear": "R",
+      "recording": "2026-11-08T15-46-30.595Z",
+      "source_file": "000006-hud.png",
+      "source_role": "development",
+      "source_sequence": 582,
+      "capture_start_ms": 485864,
+      "review_source": "assistant_visual_review_of_source_contact_sheets_before_OCR"
+    }
+  ]
+}
