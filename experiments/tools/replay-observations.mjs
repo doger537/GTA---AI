@@ -1,3 +1,4 @@
+import {StraightStopSkill} from '../../packages/control/straight-stop.mjs';
 // Offline replay of a recorded observation session using the original HUD PNG.
 // No bridge, no game input; model weights and thresholds are unchanged.
 import {resolve,dirname} from 'node:path';
@@ -20,8 +21,9 @@ const cameraProfile=arg('camera','rear');
 if(!['rear','hood'].includes(cameraProfile))throw Error('camera must be rear|hood (operator-declared, not verified)');
 const report=await replayObservations(root,{
   sampling,intent,annotations,overlay,output:out,
-  readerFactory:meta=>VehicleStateReader.create(hudProfile(meta,{digitModel:args.includes('--digit-model')})),
+  hudProfile:meta=>hudProfile(meta,{digitModel:args.includes('--digit-model')}),
+  readerFactory:profile=>VehicleStateReader.create(profile),
   // Same loader as the live path: YOLOP vehicles + SegFormer road with occlusion.
   visionFactory:()=>Perception.load({cameraProfile}),
-  skill:skill?{targetKmh:Number(arg('target-kmh',8))}:null});
+  skill:skill?new StraightStopSkill({targetKmh:Number(arg('target-kmh',8))}):null});
 console.log(JSON.stringify({report:out,summary:report.summary},null,2));

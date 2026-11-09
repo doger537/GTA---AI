@@ -38,6 +38,7 @@ function scoreShift(a,b,shift){
 // scene moved right in the image, which in this rear view is a left camera turn;
 // the sign convention is reported but not converted to an angle.
 export function estimateShift(previous,current,{maxShiftPixels=null,minOverlap=0.6,minScore=0.5,minAmbiguity=0.05}={}){
+  if(![minOverlap,minScore,minAmbiguity].every(num)||minOverlap<=0||minOverlap>1||minScore<0||minScore>1||minAmbiguity<0||minAmbiguity>2)return {ok:false,reason:'invalid_shift_thresholds'};
   if(!previous?.ok||!current?.ok)return {ok:false,reason:previous?.reason??current?.reason??'profiles_required'};
   if(previous.width!==current.width)return {ok:false,reason:'profile_width_changed'};
   const a=previous.profile,b=current.profile,w=a.length;
@@ -74,10 +75,12 @@ export function estimateShift(previous,current,{maxShiftPixels=null,minOverlap=0
 // Lateral drift of the traced corridor from near to far row, in image fractions.
 // This is a shape feature of the current frame, not a yaw angle.
 export function corridorDrift(corridor,{minPoints=3}={}){
+  if(!Number.isInteger(minPoints)||minPoints<3)return {ok:false,reason:'invalid_min_points'};
   if(!corridor?.valid||!Array.isArray(corridor.points))return {ok:false,reason:corridor?.reason??'corridor_not_valid'};
   const points=corridor.points.filter(p=>p&&num(p.x)&&num(p.y));
   // A drift needs a real span: three closely spaced nodes carry no shape.
-  if(points.length<3)return {ok:false,reason:'corridor_too_short'};
+  if(points.length<minPoints)return {ok:false,reason:'corridor_too_short'};
+  if(points.length!==corridor.points.length||points.some(p=>p.x<0||p.x>1||p.y<0||p.y>1))return {ok:false,reason:'invalid_corridor_points'};
   const near=points[0],far=points.at(-1);
   const depth=near.y-far.y;
   if(!(depth>0.02))return {ok:false,reason:'corridor_depth_too_small'};
@@ -96,6 +99,8 @@ export function corridorDrift(corridor,{minPoints=3}={}){
 // never inferred here and never defaulted.
 export function classifyMotionSource({roadShift,minimapMotion,thresholds={}}={}){
   const t={road_pixels:4,minimap_fraction:0.01,...thresholds};
+  if(!num(t.road_pixels)||!num(t.minimap_fraction)||t.road_pixels<0||t.minimap_fraction<0)return {source:'unknown',reason:'invalid_motion_thresholds',scope:EGO_SCOPE};
+  if(roadShift?.ok===true&&(!num(roadShift.shift_pixels))||minimapMotion?.ok===true&&(!num(minimapMotion.fraction)||minimapMotion.fraction<0))return {source:'unknown',reason:'invalid_motion_signal',scope:EGO_SCOPE};
   const roadOk=roadShift?.ok===true&&roadShift.confident===true;
   const mapOk=minimapMotion?.ok===true&&num(minimapMotion.fraction);
   const roadSignificant=roadOk&&Math.abs(roadShift.shift_pixels)>t.road_pixels;

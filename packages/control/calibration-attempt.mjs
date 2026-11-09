@@ -25,22 +25,21 @@ function slope(points){
   return {perSecond:b,r2:sst===0?null:1-sse/sst,samples:n};
 }
 
-// Commands are stamped on the Node clock (elapsed_ms) and observations on the
-// capture clock. One matched pair gives an estimate; the residual scatter of all
-// matched pairs is reported instead of pretending the clocks are synchronised.
+// Receipt timestamps and broker age headers bound the offset between clocks.
+// A decision source timestamp only identifies an older input frame and must
+// never stand in for the timestamp of command dispatch.
 export function captureClockAnchor(attempt){
+  const origin=attempt.command_clock_origin_ms;
   const pairs=[];
-  for(const c of attempt.commands??[]){
-    if(!num(c.elapsed_ms)||!c.source||!num(c.source.capture_start_ms))continue;
-    pairs.push({elapsed:c.elapsed_ms,capture:c.source.capture_start_ms});
+  if(!num(origin))return {ok:false,reason:'command_clock_mapping_required'};
+  for(const o of attempt.observations??[]){
+    if(![o.start_ms,o.frame_age_ms,o.received_at_ms,o.roundtrip_ms].every(num)||o.frame_age_ms<0||o.roundtrip_ms<0)continue;
+    pairs.push({offset:o.start_ms+o.frame_age_ms-(o.received_at_ms-origin),uncertainty:o.roundtrip_ms+1});
   }
-  if(!pairs.length)return {ok:false,reason:'no_source_stamped_commands'};
-  const base=pairs[0];
-  const offsets=pairs.map(p=>(p.capture-p.elapsed)-(base.capture-base.elapsed));
-  return {ok:true,offset:base.capture-base.elapsed,
-    uncertainty_ms:Math.max(...offsets.map(Math.abs))+5,
-    pairs:pairs.length,basis:'single_anchor_estimate',
-    note:'Relative clock mapping assumed stable for the attempt; scatter is reported as uncertainty.'};
+  if(!pairs.length)return {ok:false,reason:'command_clock_mapping_required'};
+  const offset=pairs[0].offset;
+  return {ok:true,offset,uncertainty_ms:Math.max(...pairs.map(p=>Math.abs(p.offset-offset)+p.uncertainty)),
+    pairs:pairs.length,basis:'receipt_clock_estimate',note:'Clock estimate uses capture-age headers and Node receipt times with roundtrip uncertainty. Source frame time is not command dispatch time.'};
 }
 
 // The caller states, per attempt, whether its sessions were kept out of the fit.
@@ -59,8 +58,22 @@ export function measureAttempt(attempt){
   if(attempt.start_readiness&&attempt.start_readiness.ready!==true)blockers.push('startup_not_ready');
   if(attempt.arm_readiness&&attempt.arm_readiness.ready!==true)blockers.push('arm_not_ready');
 
+  let previous=null;
+  for(const o of observations){
+    if(o.state.gear?.value==='R'||o.state.gear?.value==='N'||o.state.speed?.kmh>1&&(o.state.gear?.valid!==true||!/^[1-8]$/.test(o.state.gear.value??'')))blockers.push('forward_gear_not_verified');
+    if(!Number.isSafeInteger(o.sequence)||!Number.isSafeInteger(o.generation)||!num(o.end_ms)||o.end_ms<o.start_ms||!num(o.age_ms)||o.age_ms<0||o.age_ms>450||o.state.speed?.time_ms!==o.start_ms||previous&&(o.sequence<=previous.sequence||o.start_ms<=previous.start_ms||o.generation!==previous.generation))blockers.push('invalid_observation_timeline');
+    previous=o;
+  }
+  let previousElapsed=-Infinity;
+  for(const c of commands){
+    if(c.elapsed_ms<previousElapsed||['steer','throttle','brake'].some(k=>!num(c.command[k]))||Math.abs(c.command.steer)>1||c.command.throttle<0||c.command.throttle>1||c.command.brake<0||c.command.brake>1||c.command.throttle>0&&c.command.brake>0)blockers.push('invalid_command_timeline');
+    previousElapsed=c.elapsed_ms;
+  }
+  if(observations.length!==(attempt.observations??[]).length)blockers.push('invalid_observation_timeline');
+  if(commands.length!==(attempt.commands??[]).length)blockers.push('invalid_command_timeline');
+  if(blockers.some(r=>r.startsWith('invalid_')||r==='forward_gear_not_verified'))anchor.ok=false;
   const toCapture=anchor.ok?t=>t+anchor.offset:()=>null;
-  const timeline=observations.map(o=>({file:o.file??null,start_ms:o.start_ms,end_ms:num(o.end_ms)?o.end_ms:o.start_ms,
+  const timeline=observations.map(o=>({file:o.file??null,sequence:o.sequence,generation:o.generation,speed_time_ms:o.state.speed?.time_ms,start_ms:o.start_ms,end_ms:num(o.end_ms)?o.end_ms:o.start_ms,
     age_ms:num(o.age_ms)?o.age_ms:null,kmh:o.state?.speed?.valid===true&&num(o.state.speed.kmh)?o.state.speed.kmh:null,
     gear:o.state?.gear?.valid===true?o.state.gear.value:null}));
   const readable=timeline.filter(t=>t.kmh!==null);
@@ -68,6 +81,7 @@ export function measureAttempt(attempt){
 
   // Command episodes: consecutive commands with the same mode of actuation.
   const stamped=commands.map(c=>({elapsed:c.elapsed_ms,capture:toCapture(c.elapsed_ms),reason:c.reason,command:c.command,
+    expires:num(c.source?.decision_expires_ms)?c.source.decision_expires_ms:Infinity,
     duration_ms:num(c.duration_ms)?c.duration_ms:num(c.command.duration_ms)?c.command.duration_ms:null}));
   const firstGas=stamped.find(c=>c.command.throttle>0);
   const firstBrake=stamped.find(c=>c.command.brake>0);
@@ -98,6 +112,7 @@ export function measureAttempt(attempt){
     if(dt<=0||dt>1.5||a.kmh===null||b.kmh===null)continue;
     const rate=(b.kmh-a.kmh)/dt;
     const at=stamped.filter(c=>c.capture!==null&&c.capture<=a.start_ms).at(-1);
+    if(!at||!num(at.duration_ms)||b.start_ms>Math.min(at.capture+at.duration_ms,at.expires)||stamped.some(c=>c.capture>a.start_ms&&c.capture<b.start_ms&&['steer','throttle','brake'].some(k=>c.command[k]!==at.command[k])))continue;
     if(!at)continue;
     if(!anchor.ok)continue;
     if(at.command.throttle<=0&&at.command.brake<=0&&rate<0)coastSegments.push({kmh_per_s:rate,dt_s:dt});
@@ -113,12 +128,12 @@ export function measureAttempt(attempt){
   const stopRuns=[];
   let inStop=false;
   for(const [i,t] of timeline.entries()){
-    const verdict=confirm.update({sequence:i+1,
-      capture_start_ms:t.start_ms,capture_end_ms:t.end_ms,age_ms:t.age_ms??0,
-      speed:t.kmh===null?{valid:false,kmh:null}:{valid:true,kmh:t.kmh,time_ms:t.start_ms},
+    const verdict=confirm.update({generation:t.generation,sequence:t.sequence,
+      capture_start_ms:t.start_ms,capture_end_ms:t.end_ms,age_ms:t.age_ms,
+      speed:t.kmh===null?{valid:false,kmh:null}:{valid:true,kmh:t.kmh,time_ms:t.speed_time_ms},
       gear:t.gear===null?{valid:false,value:null}:{valid:true,value:t.gear}});
     if(verdict.state==='unknown')unreadable++;
-    if(verdict.state==='stopped'){zeroFrames++;if(!inStop){inStop=true;stopRuns.push(t.start_ms);}}
+    if(verdict.state==='stopped'&&verdict.pedal_release_allowed){zeroFrames++;if(!inStop){inStop=true;stopRuns.push(t.start_ms);}}
     else inStop=false;
     if(verdict.creep_detected)creep++;
   }
@@ -128,15 +143,18 @@ export function measureAttempt(attempt){
   const moved=(peak?.kmh??0)>1;
   const stopAt=moved?stopRuns.find(start=>start>peak.start_ms)??null:null;
   const stoppedAfterMotion=stopAt!==null;
-  const brakingBeforeStop=stoppedAfterMotion?stamped.filter(c=>c.capture!==null&&c.capture<=stopAt&&c.command.brake>0).at(-1):null;
+  const brakingBeforeStop=stoppedAfterMotion?stamped.find(c=>c.capture!==null&&c.capture>=(firstGas?.capture??-Infinity)&&c.capture<=stopAt&&c.command.brake>0):null;
   const stop_time_ms=brakingBeforeStop&&anchor.ok?Math.round(stopAt-brakingBeforeStop.capture):null;
 
+  if(!moved||reaction_ms===null)blockers.push('motion_not_measured');
+  if(braking===null||!stoppedAfterMotion)blockers.push('braking_not_measured');
   const envelope={
     max_throttle:stamped.length?Math.max(...stamped.map(c=>c.command.throttle)):null,
     max_brake:stamped.length?Math.max(...stamped.map(c=>c.command.brake)):null,
     max_abs_steer:stamped.length?Math.max(...stamped.map(c=>Math.abs(c.command.steer))):null};
 
   return {
+    session_id:attempt.session_id??null,profile:attempt.profile??null,
     dose:attempt.dose??null,parameters:attempt.parameters??null,
     independent_validation:attempt.independent_validation===true,
     measurable:blockers.length===0,
@@ -151,19 +169,20 @@ export function measureAttempt(attempt){
       stopped:stopAt!==null,stopped_after_motion:stoppedAfterMotion},
     command_reasons:[...new Set(stamped.map(c=>c.reason))].filter(Boolean),
     envelope,
-    scope:'Offline measurement of one saved attempt. Times between command and observation are a single-anchor estimate on two different clocks. OCR availability limits every value; nothing here is a GTA driving result.'
+    scope:'Offline measurement of one saved attempt. Times between command and observation are a receipt-clock estimate on two different clocks. OCR availability limits every value; nothing here is a GTA driving result.'
   };
 }
 
 // Several attempts of the same dose: spread and disagreement, never a single
 // lucky run promoted to a coefficient.
 export function compareAttempts(attempts,{minRepetitions=5,disagreementRatio=2}={}){
+  if(!Number.isInteger(minRepetitions)||minRepetitions<5||!num(disagreementRatio)||disagreementRatio<1)throw Error('At least five repetitions and a finite spread ratio required');
   if(!Array.isArray(attempts)||!attempts.length)throw Error('A nonempty list of attempts is required');
   const normAttempts=attempts.map(a=>a&&a.motion&&Array.isArray(a.blockers)?a:measureAttempt(a));
   const measured=normAttempts;
   const groups=new Map();
   for(const m of measured){
-    const key=JSON.stringify(m.parameters??{dose:m.dose});
+    const key=JSON.stringify({profile:m.profile,parameters:m.parameters??{dose:m.dose}});
     if(!groups.has(key))groups.set(key,[]);
     groups.get(key).push(m);
   }
@@ -173,17 +192,18 @@ export function compareAttempts(attempts,{minRepetitions=5,disagreementRatio=2}=
   };
   const rows=[...groups].map(([key,list])=>({
     key,dose:list[0].dose,parameters:list[0].parameters,attempts:list.length,
-    measurable:list.filter(m=>m.measurable).length,
+    measurable:new Set(list.filter(m=>m.measurable&&typeof m.session_id==='string'&&m.session_id).map(m=>m.session_id)).size,
     blockers:[...new Set(list.flatMap(m=>m.blockers))],
-    reaction_ms:summarize(list.map(m=>m.motion.reaction_ms)),
-    brake_deceleration_mps2:summarize(list.map(m=>m.motion.brake_deceleration_mps2)),
-    time_to_stop_ms:summarize(list.map(m=>m.motion.time_to_stop_ms)),
-    peak_kmh:summarize(list.map(m=>m.motion.peak_kmh)),
-    max_throttle:summarize(list.map(m=>m.envelope.max_throttle)),
-    max_brake:summarize(list.map(m=>m.envelope.max_brake)),
-    max_abs_steer:summarize(list.map(m=>m.envelope.max_abs_steer))
+    reaction_ms:summarize(list.filter(m=>m.measurable).map(m=>m.motion.reaction_ms)),
+    brake_deceleration_mps2:summarize(list.filter(m=>m.measurable).map(m=>m.motion.brake_deceleration_mps2)),
+    time_to_stop_ms:summarize(list.filter(m=>m.measurable).map(m=>m.motion.time_to_stop_ms)),
+    peak_kmh:summarize(list.filter(m=>m.measurable).map(m=>m.motion.peak_kmh)),
+    max_throttle:summarize(list.filter(m=>m.measurable).map(m=>m.envelope.max_throttle)),
+    max_brake:summarize(list.filter(m=>m.measurable).map(m=>m.envelope.max_brake)),
+    max_abs_steer:summarize(list.filter(m=>m.measurable).map(m=>m.envelope.max_abs_steer))
   }));
   const sparse=rows.some(r=>r.measurable<minRepetitions);
+  const mixedProfiles=new Set(normAttempts.map(m=>JSON.stringify(m.profile))).size>1;
   // Measurable attempts are necessary, not sufficient: the coefficient still has
   // to be checked on sessions that were not used to derive it.
   const independent=rows.every(r=>r.measurable>=minRepetitions);
@@ -193,8 +213,8 @@ export function compareAttempts(attempts,{minRepetitions=5,disagreementRatio=2}=
   const spread=(s)=>num(s.min)&&num(s.max)&&s.min>0?s.max/s.min:1;
   const disagreeing=rows.filter(r=>spread(r.brake_deceleration_mps2)>disagreementRatio||spread(r.time_to_stop_ms)>disagreementRatio);
   return {groups:rows,
-    status:sparse||disagreeing.length?'insufficient_evidence':'draft_pending_independent_validation',
-    blockers:[...(sparse?['fewer_than_'+minRepetitions+'_measurable_attempts_per_dose']:[]),...(disagreeing.length?['repetitions_disagree']:[]),
+    status:sparse||disagreeing.length||mixedProfiles?'insufficient_evidence':'draft_pending_independent_validation',
+    blockers:[...(mixedProfiles?['mixed_calibration_profiles']:[]),...(sparse?['fewer_than_'+minRepetitions+'_measurable_attempts_per_dose']:[]),...(disagreeing.length?['repetitions_disagree']:[]),
       ...(independent&&!disagreeing.length&&!independentValidation?['independent_validation_sessions_missing']:[])],
     scope:'Spread across repetitions only. Independent development/validation sessions and a verified evidence bundle are still required before any coefficient reaches DriveSafetyGate.'};
 }
@@ -203,7 +223,7 @@ export function compareAttempts(attempts,{minRepetitions=5,disagreementRatio=2}=
 // hashes, so loadCalibrationEvidence() rejects it.
 export function draftCoefficients(comparison,{sessions=[],vehicleId=null,actuatorKind='gamepad',cameraProfile='rear'}={}){
   if(!comparison||!Array.isArray(comparison.groups))throw Error('comparison is required');
-  const usable=comparison.groups.filter(g=>g.measurable>0);
+  const usable=comparison.status==='draft_pending_independent_validation'?comparison.groups.filter(g=>g.measurable>=5):[];
   const pick=(list,key)=>median(list.map(g=>g[key].median).filter(num));
   const lowest=(list,key)=>{const values=list.map(g=>g[key].median).filter(num);return values.length?Math.min(...values):null;};
   const coefficients={

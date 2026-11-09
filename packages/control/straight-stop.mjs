@@ -16,26 +16,30 @@ export class StraightStopSkill {
     if(!Number.isFinite(maxKmh)||maxKmh<targetKmh||maxKmh>12)throw Error('maxKmh must be between targetKmh and 12');
     if(!Number.isFinite(maxLateralError)||maxLateralError<=0||maxLateralError>0.3)throw Error('maxLateralError must be (0,0.3]');
     if(!Number.isInteger(recoverFrames)||recoverFrames<1||recoverFrames>10)throw Error('recoverFrames must be an integer 1..10');
-    if(calibration!==null&&(!Number.isFinite(calibration.maxThrottle)||!Number.isFinite(calibration.maxBrake)||!Number.isFinite(calibration.maxSteer)))throw Error('Calibration envelope needs maxThrottle/maxBrake/maxSteer');
-    Object.assign(this,{targetKmh,maxKmh,maxLateralError,calibration,recoverFrames,minRoadFraction,minRows});
+    if(calibration!==null&&['maxThrottle','maxBrake','maxSteer'].some(k=>!Number.isFinite(calibration[k])||calibration[k]<0||calibration[k]>1))throw Error('Calibration envelope needs maxThrottle/maxBrake/maxSteer inside0..1');
+    if(!Number.isFinite(minRoadFraction)||minRoadFraction<0||minRoadFraction>1||!Number.isInteger(minRows)||minRows<2)throw Error('Invalid road limits');
+    Object.assign(this,{targetKmh,maxKmh,maxLateralError,calibration:calibration?Object.freeze({...calibration}):null,recoverFrames,minRoadFraction,minRows});
     this.stop=new StopConfirmation(stopOptions);
     this.reset();
   }
-  reset(){this.steer=0;this.lastStart=null;this.lastSequence=null;this.lastUpdate=null;this.fault=null;this.validRun=0;this.state='READY';this.stop.reset('skill_reset');}
+  reset(){this.stopRequested=false;this.steer=0;this.lastStart=null;this.lastSequence=null;this.lastUpdate=null;this.fault=null;this.validRun=0;this.state='READY';this.stop.reset('skill_reset');}
   get calibrationBound(){return this.calibration!==null;}
 
   // frame: {sequence,capture_start_ms,capture_end_ms,age_ms,state:{speed,gear},vision,stop_requested}
   update(frame){
     const f=frame??{};
+    if(f.stop_requested===true)this.stopRequested=true;
+    const currentStop=this.stop.update({generation:f.generation,sequence:f.sequence,capture_start_ms:f.capture_start_ms,capture_end_ms:f.capture_end_ms,age_ms:f.age_ms,speed:f.state?.speed,gear:f.state?.gear});
     const result=(state,reason,extra={})=>{
       const command=extra.command??NEUTRAL;
       this.state=state;
       return {state,reason,command,
-        actuation_allowed:state!=='FAULT'&&this.calibrationBound,
+        actuation_allowed:false,
+        proposal_within_envelope:state!=='FAULT'&&this.calibrationBound,
         stop_confirmed:state==='STOPPED',
         // Releasing the pedal is allowed by a confirmed stop on its own, not only
         // by the state; the command still needs the following decision.
-        pedal_release_allowed:this.stop.stopped,
+        pedal_release_allowed:extra.stop?.pedal_release_allowed===true,
         calibration_bound:this.calibrationBound,
         lateral:extra.lateral??null,stop:extra.stop??null,
         evidence:{sequence:f.sequence,capture_start_ms:f.capture_start_ms,age_ms:f.age_ms},
@@ -45,30 +49,34 @@ export class StraightStopSkill {
 
     // Chronology is required even while failing, so a resent frame cannot count
     // twice towards recovery.
-    const timelineOk=Number.isSafeInteger(f.sequence)&&Number.isFinite(f.capture_start_ms)&&Number.isFinite(f.capture_end_ms)
+    const timelineOk=Number.isSafeInteger(f.sequence)&&f.sequence>=1&&Number.isFinite(f.capture_start_ms)&&Number.isFinite(f.capture_end_ms)
       &&f.capture_start_ms>=0&&f.capture_end_ms>=f.capture_start_ms
       &&(this.lastStart===null||(f.sequence>this.lastSequence&&f.capture_start_ms>this.lastStart));
     if(!timelineOk){this.validRun=0;this.fault='invalid_or_repeated_timeline';return result('FAULT',this.fault);}
     this.lastSequence=f.sequence;this.lastStart=f.capture_start_ms;
 
-    const stop=this.stop.update({sequence:f.sequence,capture_start_ms:f.capture_start_ms,capture_end_ms:f.capture_end_ms,age_ms:f.age_ms,speed,gear});
+    const stop=currentStop;
 
     const reject=reason=>{this.validRun=0;this.fault=reason;return result('FAULT',reason,{stop});};
+    if(['invalid_generation','generation_changed'].includes(stop.reason))return reject(stop.reason);
     if(!Number.isFinite(f.age_ms)||f.age_ms<0||f.age_ms>450)return reject('stale_observation');
     if(f.capture_end_ms-f.capture_start_ms>450)return reject('observation_capture_too_long');
     if(speed?.valid!==true||!Number.isFinite(speed.kmh)||speed.kmh<0||speed.kmh>200)return reject(speed?.rejection_reason??'speed_unreadable');
+    if(speed.time_ms!==f.capture_start_ms)return reject('state_frame_mismatch');
     if(gear?.valid!==true||typeof gear.value!=='string')return reject('gear_unknown');
     if(gear.value==='R')return reject('reverse_not_supported');
     if(!FORWARD.test(gear.value))return reject('neutral_not_supported');
     const p=f.vision;
+    if(Object.hasOwn(f,'corridor')&&!f.corridor?.valid)return reject(f.corridor?.reason??'connected_road_unknown');
     if(!p||!Number.isFinite(p.road_fraction)||p.road_fraction<this.minRoadFraction)return reject('road_uncertain');
     if(!Array.isArray(p.rows)||p.rows.length<this.minRows)return reject('no_visible_corridor');
 
     // Same image-space corridor gate as the visual follower: stay near the
     // projected heading, never aim at the middle of all visible lanes.
-    const rows=p.rows.filter(r=>r&&Number.isFinite(r.y)&&Number.isFinite(r.left)&&Number.isFinite(r.right)&&r.y<=.54&&r.right-r.left>=(r.y<=.48?.10:.16));
+    const rows=p.rows.filter(r=>r&&Number.isFinite(r.y)&&Number.isFinite(r.left)&&Number.isFinite(r.right)&&r.y>=0&&r.y<=.54&&r.left>=0&&r.right<=1&&r.right-r.left>=(r.y<=.48?.10:.16));
     if(rows.length<2)return reject('no_visible_corridor');
-    const targets=rows.map(r=>{const margin=Math.min(.05,(r.right-r.left)*.2);return clamp(.5,r.left+margin,r.right-margin);});
+    const targets=f.corridor?.valid?f.corridor.points?.map(p=>p.x):rows.map(r=>{const margin=Math.min(.05,(r.right-r.left)*.2);return clamp(.5,r.left+margin,r.right-margin);});
+    if(!targets?.length||targets.some(x=>!Number.isFinite(x)||x<0||x>1))return reject('connected_road_unknown');
     const target=targets.reduce((a,b)=>a+b,0)/targets.length;
     this.validRun+=1;
     const lateral={target_x:target,error:target-.5,rows:rows.length,vehicles:Array.isArray(p.vehicles)?p.vehicles.length:0};
@@ -81,7 +89,7 @@ export class StraightStopSkill {
 
     if(Math.abs(target-.5)>this.maxLateralError)return reject('large_heading_correction_required');
     // The current frame is usable again: a stale lateral fault is not carried on.
-    if(this.fault==='large_heading_correction_required')this.fault=null;
+    this.fault=null;
 
     const dt=this.lastUpdate===null?.1:clamp((f.capture_start_ms-this.lastUpdate)/1000,.05,.25);
     this.lastUpdate=f.capture_start_ms;
@@ -91,20 +99,20 @@ export class StraightStopSkill {
 
     // A stop requested and then verified is the end of the skill; this must be
     // checked before the pending braking branch or the pedal is never released.
-    if(stop.state==='stopped')return result('STOPPED','stop_confirmed',{command:NEUTRAL,stop,lateral});
+    if(stop.state==='stopped'&&this.stopRequested)return result('STOPPED','stop_confirmed',{command:NEUTRAL,stop,lateral});
     if(stop.reason==='reverse_gear'||stop.reason==='neutral_or_unsupported_gear')return reject(stop.reason);
 
-    const brakingRequested=Boolean(f.stop_requested)||speed.kmh>this.maxKmh;
+    const brakingRequested=this.stopRequested||speed.kmh>this.maxKmh;
     if(brakingRequested){
       if(!this.calibrationBound)return result('BRAKING','braking_requires_calibration',{command:{steer,throttle:0,brake:0},stop,lateral});
-      const brake=clamp(speed.kmh>this.maxKmh?.45:this.calibration.maxBrake,0,this.calibration.maxBrake);
+      const brake=speed.kmh<=1?0:clamp(speed.kmh>this.maxKmh?.45:this.calibration.maxBrake,0,this.calibration.maxBrake);
       return result('BRAKING',speed.kmh>this.maxKmh?'over_max_speed':'stop_requested',{command:{steer,throttle:0,brake},stop,lateral});
     }
     // A confirmed zero with no stop request is READY, not "follow".
     if(speed.kmh<=1&&stop.state!=='moving')return result('READY','stationary_ready',{command:NEUTRAL,stop,lateral});
     const error=this.targetKmh-speed.kmh;
     if(!this.calibrationBound)return result('ACCELERATE','proposal_only_calibration_missing',{command:{steer,throttle:clamp(error/8,.15,.45),brake:0},stop,lateral});
-    const throttle=error>0.5?clamp(error/8,.15,this.calibration.maxThrottle):0;
+    const throttle=error>0.5?clamp(error/8,Math.min(.15,this.calibration.maxThrottle),this.calibration.maxThrottle):0;
     return result(throttle>0?'ACCELERATE':'HOLD','inside_envelope',{command:{steer,throttle,brake:0},stop,lateral});
   }
 }

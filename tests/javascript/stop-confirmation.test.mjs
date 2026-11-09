@@ -75,3 +75,11 @@ test('reverse or neutral at zero never authorizes pedal release',()=>{
  slower.update(frame({kmh:0}));slower.update(frame({kmh:0}));slower.update(frame({kmh:0}));
  assert.equal(slower.update(frame({kmh:0})).zero_frames,4);
 });
+
+test('generation changes latch and stale captures cannot be replayed as fresh',()=>{
+ const s=fresh();for(let i=0;i<3;i++)s.update(frame());const stale=frame({age:451});s.update(stale);
+ assert.equal(s.update({...stale,age_ms:50}).reason,'non_increasing_timeline');
+ const changed={...frame(),generation:2};assert.equal(s.update(changed).reason,'generation_changed');
+ assert.equal(s.update(frame()).reason,'generation_changed');s.reset();assert.equal(s.update(changed).state,'stopped_unconfirmed');
+ assert.equal(s.update({...frame(),generation:undefined}).reason,'invalid_generation');
+});

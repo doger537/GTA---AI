@@ -7,7 +7,7 @@ let tick=0;
 const frame=(overrides={})=>{
   tick+=1;
   const {kmh=5,gear='2',age=100,vision,stop_requested=false,sequence=tick,start=1000+tick*100,span=10}=overrides;
-  return {sequence,capture_start_ms:start,capture_end_ms:start+span,age_ms:age,
+  return {generation:1,sequence,capture_start_ms:start,capture_end_ms:start+span,age_ms:age,
     state:{speed:{valid:true,kmh,time_ms:start},gear:{valid:true,value:gear}},
     vision:vision===undefined?{road_fraction:.4,rows,vehicles:[]}:vision,stop_requested};
 };
@@ -23,7 +23,7 @@ test('without calibration the skill only proposes and never authorizes actuation
 test('with calibration it drives, keeps the envelope and stops on request',()=>{
  const s=skill({calibration});
  const drive=s.update(frame({kmh:3}));
- assert.equal(drive.state,'ACCELERATE');assert.equal(drive.actuation_allowed,true);
+ assert.equal(drive.state,'ACCELERATE');assert.equal(drive.actuation_allowed,false);
  assert.ok(drive.command.throttle<=calibration.maxThrottle);assert.ok(Math.abs(drive.command.steer)<=calibration.maxSteer);
  const brake=s.update(frame({kmh:6,stop_requested:true}));
  assert.equal(brake.state,'BRAKING');assert.ok(brake.command.brake<=calibration.maxBrake);assert.equal(brake.command.throttle,0);
@@ -78,4 +78,19 @@ test('resent or reordered frames cannot extend or reset anything',()=>{
  assert.equal(replay.state,'FAULT');assert.equal(replay.reason,'invalid_or_repeated_timeline');
  const older=s.update(frame({kmh:3,start:first.capture_start_ms-10}));
  assert.equal(older.reason,'invalid_or_repeated_timeline');assert.equal(older.command.throttle,0);
+});
+
+test('a stop request stays latched, zero never gets brake, and repeat cannot release pedals',()=>{
+ const s=skill({calibration});s.update(frame({stop_requested:true}));
+ const next=s.update(frame({stop_requested:false}));assert.equal(next.state,'BRAKING');assert.equal(next.command.throttle,0);
+ const zero=s.update(frame({kmh:0}));assert.equal(zero.command.brake,0);
+ s.update(frame({kmh:0}));const last=frame({kmh:0});assert.equal(s.update(last).state,'STOPPED');
+ const repeated=s.update(last);assert.equal(repeated.pedal_release_allowed,false);
+ assert.equal(s.update(frame({kmh:2})).command.throttle,0);
+});
+test('proposal respects small limits and cannot authorize inputs or ignore a blocked corridor',()=>{
+ assert.throws(()=>skill({calibration:{...calibration,maxBrake:-1}}));
+ const s=skill({calibration:{...calibration,maxThrottle:.05}}),r=s.update(frame({kmh:3}));assert.ok(r.command.throttle<=.05);assert.equal(r.actuation_allowed,false);
+ const blocked=s.update({...frame(),corridor:{valid:false,reason:'barrier'}});assert.equal(blocked.state,'FAULT');assert.equal(blocked.command.throttle,0);
+ const f=frame();f.state.speed.time_ms--;assert.equal(s.update(f).reason,'state_frame_mismatch');
 });

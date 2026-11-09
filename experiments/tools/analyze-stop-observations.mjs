@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 // Offline analysis of a passive observation recording. Timeline/latency part needs
 // no models; the optional --ocr pass needs the local HUD reader and is the only
 // place where a stop can be asserted. No input, no actuator, no labels invented.
@@ -37,8 +38,8 @@ export function analyzeTimeline(samples,{targetAgeMs=350,maxAgeMs=450,maxGapMs=2
     gaps_over_max_ms:over(intervals,maxGapMs),
     timeline_problems:problems,
     // Explicit verdicts instead of an encouraging average.
-    age_target_met:ages.length>0&&over(ages,targetAgeMs)===0,
-    age_limit_respected:ages.length>0&&over(ages,maxAgeMs)===0,
+    age_target_met:ages.length===samples.length&&over(ages,targetAgeMs)===0,
+    age_limit_respected:ages.length===samples.length&&over(ages,maxAgeMs)===0,
     continuous_timeline:problems.length===0&&over(intervals,maxGapMs)===0,
     scope:TIMELINE_SCOPE
   };
@@ -62,7 +63,7 @@ export async function analyzeStops(root,{readerFactory=null,maxSpeedKmh=1}={}){
       const start=performance.now();
       const state=await reader.read(await readFile(path.join(root,s.hud_file)),s.capture_start_ms);
       readTimes.push(performance.now()-start);
-      const verdict=confirm.update({sequence:s.sequence,capture_start_ms:s.capture_start_ms,capture_end_ms:s.capture_end_ms,age_ms:s.age_ms,speed:state.speed,gear:state.gear});
+      const verdict=confirm.update({generation:s.generation,sequence:s.sequence,capture_start_ms:s.capture_start_ms,capture_end_ms:s.capture_end_ms,age_ms:s.age_ms,speed:state.speed,gear:state.gear});
       if(verdict.state==='unknown')unreadable++;
       // One event per confirmed transition, not one per confirmatory frame.
       if(verdict.state==='stopped'&&!wasStopped)stops++;
@@ -80,7 +81,7 @@ export async function analyzeStops(root,{readerFactory=null,maxSpeedKmh=1}={}){
     states}};
 }
 
-const isMain=process.argv[1]&&path.resolve(process.argv[1])===path.resolve(new URL(import.meta.url).pathname);
+const isMain=process.argv[1]&&path.resolve(process.argv[1])===path.resolve(fileURLToPath(import.meta.url));
 if(isMain){
   const root=path.resolve(process.argv[2]??'');
   if(!process.argv[2])throw Error('Usage: node experiments/tools/analyze-stop-observations.mjs <recording-folder> [--ocr] [--speed=1] [--out=report.json]');

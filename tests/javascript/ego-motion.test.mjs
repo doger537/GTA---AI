@@ -77,3 +77,9 @@ test('camera turn and vehicle turn stay separated only when a minimap signal exi
  assert.equal(classifyMotionSource({}).reason,'no_motion_signal');
  assert.equal(classifyMotionSource({roadShift:{ok:true,confident:false,shift_pixels:9},minimapMotion:mapMoved}).source,'vehicle_motion_without_road');
 });
+
+test('missing motion values and invalid thresholds never establish stationarity',()=>{
+ assert.equal(classifyMotionSource({roadShift:{ok:true,confident:true},minimapMotion:{ok:true,fraction:0}}).source,'unknown');
+ assert.equal(classifyMotionSource({thresholds:{road_pixels:NaN}}).source,'unknown');
+ assert.equal(corridorDrift({valid:true,points:[{x:.5,y:.6},{x:.5,y:.5},{x:.5,y:.4}]},{minPoints:4}).ok,false);
+});

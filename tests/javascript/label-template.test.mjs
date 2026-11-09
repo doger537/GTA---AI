@@ -37,3 +37,8 @@ test('a label from another recording or a duplicate frame is caught',()=>{
  assert.equal(validateLabelFile(foreign,{knownFiles:new Set(['000000.jpg'])}).ok,false);
  assert.equal(validateLabelFile(foreign,{knownFiles:new Set(['000999.jpg'])}).ok,true);
 });
+
+test('unknown points remain unscored and malformed frames produce validation errors',()=>{
+ const a=emptyLabelFile({files:['000000.jpg']});a.frames[0].points=[null,{x:.5,y:.5,expected:null}];const r=validateLabelFile(a);assert.equal(r.ok,true);assert.equal(r.labelled_points,0);
+ assert.equal(validateLabelFile({schema_version:1,frames:[null]}).ok,false);a.frames[0].points={};assert.equal(validateLabelFile(a).ok,false);
+});

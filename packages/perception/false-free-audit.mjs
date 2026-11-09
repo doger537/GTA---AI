@@ -26,20 +26,15 @@ export function pathTube(corridor,{halfWidth=0.06,mask=null}={}){
   const gw=w??corridor.gridWidth,gh=h??corridor.gridHeight;
   if(!Number.isInteger(gw)||!Number.isInteger(gh)||gw<8||gh<8)return {ok:false,reason:'grid_size_unknown'};
   const tube=new Uint8Array(gw*gh);
-  for(const point of corridor.points){
-    if(!num(point?.x)||!num(point?.y))continue;
-    const gy=Math.min(gh-1,Math.max(0,Math.floor(point.y*gh)));
-    // Width in cells stays constant in the image; no perspective correction is
-    // claimed here, which is exactly why the tube is reported as pixels.
-    const radius=Math.max(1,Math.round(halfWidth*gw));
-    const cx=Math.min(gw-1,Math.max(0,Math.floor(point.x*gw)));
-    for(let x=cx-radius;x<=cx+radius;x++)if(x>=0&&x<gw)tube[gy*gw+x]=1;
-  }
-  // Join the sampled rows vertically so a hazard between two nodes is still inside.
-  for(let x=0;x<gw;x++){
-    let first=-1,last=-1;
-    for(let y=0;y<gh;y++)if(tube[y*gw+x]){if(first<0)first=y;last=y;}
-    if(first>=0)for(let y=first;y<=last;y++)tube[y*gw+x]=1;
+  if(corridor.points.some(p=>!num(p?.x)||!num(p?.y)||p.x<0||p.x>1||p.y<0||p.y>1))return {ok:false,reason:'invalid_path_points'};
+  const radius=Math.max(1,Math.round(halfWidth*gw));
+  for(let i=1;i<corridor.points.length;i++){
+    const a=corridor.points[i-1],b=corridor.points[i];
+    const steps=Math.max(1,Math.ceil(Math.max(Math.abs(b.x-a.x)*gw,Math.abs(b.y-a.y)*gh)));
+    for(let j=0;j<=steps;j++){
+      const x=Math.min(gw-1,Math.floor((a.x+(b.x-a.x)*j/steps)*gw)),y=Math.min(gh-1,Math.floor((a.y+(b.y-a.y)*j/steps)*gh));
+      for(let xx=Math.max(0,x-radius);xx<=Math.min(gw-1,x+radius);xx++)tube[y*gw+xx]=1;
+    }
   }
   let cells=0;for(const v of tube)cells+=v;
   return {ok:true,tube,gridWidth:gw,gridHeight:gh,cells,half_width:halfWidth,
@@ -51,10 +46,12 @@ export function pathTube(corridor,{halfWidth=0.06,mask=null}={}){
 export function auditFrame(p,points,{corridor=null,tube=null}={}){
   if(!p||!Array.isArray(points))return {ok:false,reason:'points_required'};
   if(!points.length)return {ok:false,reason:'points_required'};
-  if(!p.road||p.road.length!==p.gridWidth*p.gridHeight)return {ok:false,reason:'invalid_road_mask'};
+  if(!Number.isInteger(p.gridWidth)||!Number.isInteger(p.gridHeight)||p.gridWidth<1||p.gridHeight<1||['road','corridorRoad','obstacle','corridorObstacle'].some(k=>p[k]&&p[k].length!==p.gridWidth*p.gridHeight)||!p.road)return {ok:false,reason:'invalid_road_mask'};
   const road=p.corridorRoad??p.road,obstacle=p.corridorObstacle??p.obstacle??null;
+  if(tube&&((tube.tube??tube).length!==p.gridWidth*p.gridHeight||tube.ok===false))return {ok:false,reason:'invalid_path_tube'};
   const results=[];
   for(const point of points){
+    if(point===null||point.expected===null)continue;
     if(!num(point?.x)||!num(point?.y)||point.x<0||point.x>1||point.y<0||point.y>1)throw Error('Point outside the image');
     if(point.expected!=='road'&&point.expected!=='hazard')throw Error('Point must be labelled road or hazard');
     if(point.expected==='hazard'&&!HAZARD_KINDS.includes(point.kind))throw Error('Hazard point needs a known kind: '+HAZARD_KINDS.join(','));
@@ -65,9 +62,10 @@ export function auditFrame(p,points,{corridor=null,tube=null}={}){
     results.push({x:point.x,y:point.y,expected:point.expected,kind:point.kind??null,
       predicted_road:road[i]===1,predicted_obstacle:obstacle?obstacle[i]===1:null,in_tube:inTube,
       // The single most dangerous cell state: free according to the mask where a human says it is not.
-      false_free:point.expected==='hazard'&&road[i]===1,
+      false_free:point.expected==='hazard'&&road[i]===1&&obstacle?.[i]!==1,
       missed_road:point.expected==='road'&&road[i]!==1});
   }
+  if(!results.length)return {ok:false,reason:'points_required'};
   const hazard=results.filter(r=>r.expected==='hazard'),roadPoints=results.filter(r=>r.expected==='road');
   const inTube=hazard.filter(r=>r.in_tube===true);
   return {ok:true,grid:{width:p.gridWidth,height:p.gridHeight},points:results.length,
@@ -99,7 +97,7 @@ export function summarizeAudit(frames,{allowAnyFalseFree=false}={}){
     missed_road:sum('missed_road'),
     // Any single dangerous false-free on the intended path fails the gate.
     verdict:falseFreeOnPath>0||(allowAnyFalseFree&&falseFreeAll>0)?'false_free_found':
-      ok.some(f=>f.corridor_valid===false)?'road_not_traversable':'no_false_free_on_labelled_points',
+      ok.length!==frames.length||ok.length===0?'insufficient_audit_data':ok.some(f=>f.corridor_valid===false)?'road_not_traversable':'no_false_free_on_labelled_points',
     by_kind:byKind,
     limitations:['Development frames only; these images were used while tuning the models.',
       'A point audit is not a pixel or polygon IoU and cannot prove the whole corridor is safe.',

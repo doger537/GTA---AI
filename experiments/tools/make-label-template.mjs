@@ -1,10 +1,11 @@
+import {fileURLToPath} from 'node:url';
 // Writes an empty label file for a folder or a saved recording. Nothing is
 // pre-filled: every point, scene kind and yaw stays null until a human edits it.
 import {readFile,writeFile,readdir} from 'node:fs/promises';
 import path from 'node:path';
 import {emptyLabelFile} from '../../packages/perception/label-template.mjs';
 
-const isMain=process.argv[1]&&path.resolve(process.argv[1])===path.resolve(new URL(import.meta.url).pathname);
+const isMain=process.argv[1]&&path.resolve(process.argv[1])===path.resolve(fileURLToPath(import.meta.url));
 if(isMain){
   const target=process.argv[2];
   if(!target)throw Error('Usage: node experiments/tools/make-label-template.mjs <recording-or-folder> [--out=labels.json] [--frames=40] [--session=ID]');

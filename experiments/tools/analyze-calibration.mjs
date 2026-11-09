@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 // Offline analysis of saved calibration attempts (experiment runs). Reads
 // report.json files only: no bridge, no game, no input, no verified bundle.
 import {readFile,writeFile,mkdir,readdir,stat} from 'node:fs/promises';
@@ -32,7 +33,7 @@ export async function analyzeCalibrationFolder(root,{minRepetitions=5,vehicleId=
     scope:'Offline analysis of saved attempt reports. Draft coefficients are not verified evidence, contain no hashes and are rejected by loadCalibrationEvidence by design.'};
 }
 
-const isMain=process.argv[1]&&path.resolve(process.argv[1])===path.resolve(new URL(import.meta.url).pathname);
+const isMain=process.argv[1]&&path.resolve(process.argv[1])===path.resolve(fileURLToPath(import.meta.url));
 if(isMain){
   const root=process.argv[2];
   if(!root)throw Error('Usage: node experiments/tools/analyze-calibration.mjs <runs-folder> [--min=5] [--out=review.json] [--draft=coeffs.json] [--vehicle=NAME] [--camera=rear]');
@@ -45,7 +46,7 @@ if(isMain){
   if(draftFile){await mkdir(path.dirname(path.resolve(draftFile)),{recursive:true});await writeFile(path.resolve(draftFile),JSON.stringify(report.draft,null,2));}
   console.log(JSON.stringify({review:out,draft:draftFile,attempts:report.files.length,
     status:report.comparison.status,blockers:report.comparison.blockers,
-    reaction_ms:report.reaction_ms?.median??null,
+    reaction_ms:report.reaction_ms?.p50??null,
     group_reaction_ms:report.comparison.groups.map(g=>g.reaction_ms.median),
     groups:report.comparison.groups.map(g=>({dose:g.dose,attempts:g.attempts,measurable:g.measurable,
       reaction_ms:g.reaction_ms.median,braking_mps2:g.brake_deceleration_mps2.median,time_to_stop_ms:g.time_to_stop_ms.median}))},null,2));

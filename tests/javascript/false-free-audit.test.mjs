@@ -66,3 +66,15 @@ test('a single false-free on the path fails the summary; wording stays limited',
  assert.equal(offPath.verdict,'false_free_found');
  assert.throws(()=>summarizeAudit([]),/nonempty/);
 });
+
+test('refused or malformed audits do not become a clean verdict and unknown labels stay unknown',()=>{
+ assert.equal(summarizeAudit([{ok:false,reason:'missing'}]).verdict,'insufficient_audit_data');
+ assert.equal(auditFrame({...scene(),corridorRoad:[]},[{x:.5,y:.5,expected:'road'}]).ok,false);
+ assert.equal(auditFrame(scene(),[null,{x:.5,y:.5,expected:null}]).ok,false);
+ const p=scene({roadAt:[[.5,.5]],obstacleAt:[[.5,.5]]});assert.equal(auditFrame(p,[{x:.5,y:.5,expected:'hazard',kind:'pole'}]).false_free,0);
+});
+test('diagonal tubes cover the path between sparse nodes without filling a whole rectangle',()=>{
+ const t=pathTube({valid:true,points:[{x:.2,y:.8},{x:.8,y:.2}]},{mask:maskOf(),halfWidth:.03});
+ assert.equal(t.tube[Math.floor(.5*H)*W+Math.floor(.5*W)],1);
+ assert.equal(t.tube[Math.floor(.8*H)*W+Math.floor(.8*W)],0);
+});

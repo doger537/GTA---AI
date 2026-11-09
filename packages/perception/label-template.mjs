@@ -29,13 +29,15 @@ export function validateLabelFile(label,{knownFiles=null}={}){
   if(!Array.isArray(label?.frames))return {ok:false,problems:['frames must be an array']};
   const seen=new Set();
   for(const [i,frame] of label.frames.entries()){
+    if(!frame||typeof frame!=='object'){problems.push('invalid frame '+i);continue;}
     const at=frame?.file??('#'+i);
     if(typeof frame?.file!=='string'||!frame.file||frame.file.includes('/')||frame.file.includes('\\'))problems.push(at+': invalid file name');
     if(knownFiles&&!knownFiles.has(frame?.file))problems.push(at+': file is not part of the recording');
     if(seen.has(frame.file))problems.push(at+': duplicate frame');
     seen.add(frame.file);
     if(!Array.isArray(frame?.points))problems.push(at+': points must be an array');
-    for(const [j,point] of (frame?.points??[]).entries()){
+    for(const [j,point] of (Array.isArray(frame?.points)?frame.points:[]).entries()){
+      if(point===null||point.expected===null)continue;
       const where=at+' point '+j;
       if(!Number.isFinite(point?.x)||!Number.isFinite(point?.y)||point.x<0||point.x>1||point.y<0||point.y>1){problems.push(where+': x/y must be inside 0..1');continue;}
       if(point.expected==='road')continue;
@@ -45,5 +47,5 @@ export function validateLabelFile(label,{knownFiles=null}={}){
     const kind=frame?.scene?.kind;
     if(kind!==null&&kind!==undefined&&!SCENE_KINDS.includes(kind))problems.push(at+': scene.kind must be null or one of '+SCENE_KINDS.join(','));
   }
-  return {ok:problems.length===0,problems,labelled_points:label.frames.reduce((a,f)=>a+(Array.isArray(f.points)?f.points.length:0),0)};
+  return {ok:problems.length===0,problems,labelled_points:label.frames.reduce((a,f)=>a+(Array.isArray(f?.points)?f.points.filter(p=>p&&['road','hazard'].includes(p.expected)).length:0),0)};
 }

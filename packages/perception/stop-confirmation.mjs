@@ -16,7 +16,7 @@ function result(state,reason,{evidence=null,speed=null,gear=null,zeroFrames=0,ze
 // twice, an unrelated frame timestamp must not be attached, and a gap breaks the
 // run instead of bridging it.
 export class StopConfirmation {
-  #last=null; #watermark=null; #zeroFrames=0; #zeroSince=null; #stopped=false; #movedAfterStop=false;
+  #last=null; #watermark=null; #zeroFrames=0; #zeroSince=null; #stopped=false; #movedAfterStop=false; #generation=null; #generationChanged=false;
   constructor({minZeroFrames=3,maxSpeedKmh=1,restartSpeedKmh=2,maxAgeMs=450,maxCaptureMs=450,maxGapMs=250}={}){
     if(!Number.isInteger(minZeroFrames)||minZeroFrames<2||minZeroFrames>30)throw Error('minZeroFrames must be an integer 2..30');
     if(!number(maxSpeedKmh,0,2))throw Error('maxSpeedKmh must be 0..2 km/h');
@@ -26,20 +26,25 @@ export class StopConfirmation {
     this.reset('not_started');
   }
   get stopped(){return this.#stopped;}
-  reset(reason='reset'){this.#last=null;this.#watermark=null;this.#zeroFrames=0;this.#zeroSince=null;this.#stopped=false;this.#movedAfterStop=false;this.last_reset=reason;return this;}
+  reset(reason='reset'){this.#generation=null;this.#generationChanged=false;this.#last=null;this.#watermark=null;this.#zeroFrames=0;this.#zeroSince=null;this.#stopped=false;this.#movedAfterStop=false;this.last_reset=reason;return this;}
   update(frame){
     const f=frame??{},speed=f.speed,gear=f.gear;
     const evidence={sequence:f.sequence,capture_start_ms:f.capture_start_ms,capture_end_ms:f.capture_end_ms,age_ms:f.age_ms};
     const gearInfo=gear?{valid:gear.valid===true,value:typeof gear.value==='string'?gear.value:null}:null;
     // Rejected frames still advance the chronology watermark, so a resent or older
     // capture can never be taken as a fresh frame after a rejection.
-    const fail=reason=>{this.#zeroFrames=0;this.#zeroSince=null;this.#stopped=false;this.#movedAfterStop=false;this.last_reset=reason;return result('unknown',reason,{evidence,gear:gearInfo});};
+    const fail=reason=>{this.#last=null;this.#zeroFrames=0;this.#zeroSince=null;this.#stopped=false;this.#movedAfterStop=false;this.last_reset=reason;return result('unknown',reason,{evidence,gear:gearInfo});};
+    if(!Number.isSafeInteger(f.generation)||f.generation<0)return fail('invalid_generation');
+    if(this.#generation!==null&&f.generation!==this.#generation)this.#generationChanged=true;
+    if(this.#generationChanged)return fail('generation_changed');
+    this.#generation=f.generation;
     if(!Number.isSafeInteger(f.sequence)||f.sequence<1)return fail('invalid_sequence');
     if(!Number.isFinite(f.capture_start_ms)||!Number.isFinite(f.capture_end_ms)||f.capture_start_ms<0||f.capture_end_ms<f.capture_start_ms||f.capture_end_ms-f.capture_start_ms>this.maxCaptureMs)return fail('invalid_capture_interval');
-    if(!number(f.age_ms,0,this.maxAgeMs))return fail('stale_observation');
     // Re-sending the same capture (or an older one) must not extend a stop run.
     if(this.#watermark&&(f.sequence<=this.#watermark.sequence||f.capture_start_ms<=this.#watermark.start))return fail('non_increasing_timeline');
     this.#watermark={sequence:f.sequence,start:f.capture_start_ms};
+    if(f.age_ms<f.capture_end_ms-f.capture_start_ms)return fail('invalid_observation_age');
+    if(!number(f.age_ms,0,this.maxAgeMs))return fail('stale_observation');
     const gap=this.#last?f.capture_start_ms-this.#last.start:null;
 
     const speedInfo=speed&&Number.isFinite(speed.kmh)?{valid:speed.valid===true,kmh:speed.kmh,time_ms:speed.time_ms}:null;

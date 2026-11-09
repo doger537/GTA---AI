@@ -5,7 +5,7 @@ import {analyzeTimeline,analyzeStops} from '../../experiments/tools/analyze-stop
 
 const sample=(i,{start=1000+i*125,span=20,age=60,gap=0,skew=0,sequence=i+1}={})=>({
   file:String(i).padStart(6,'0')+'.jpg',hud_file:String(i).padStart(6,'0')+'-hud.png',minimap_file:String(i).padStart(6,'0')+'-map.png',
-  sequence,capture_start_ms:start,capture_end_ms:start+span,age_ms:age,capture_skew_ms:skew,
+  generation:1,sequence,capture_start_ms:start,capture_end_ms:start+span,age_ms:age,capture_skew_ms:skew,
   hud_geometry:{full_width:1904,full_height:994,left:1561,top:755,width:248,height:139},minimap_region:{left:0,top:715,width:476,height:279}});
 
 test('a clean recording reports latency and continuity without inventing a stop',()=>{

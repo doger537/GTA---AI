@@ -11,11 +11,11 @@ function attempt({scale=1,kmh=speeds,withSource=true,hold=0,extra={}}={}){
   // hold adds slow coasting frames so the stop time genuinely differs.
   if(hold)kmh=[...kmh.slice(0,8),...Array(hold).fill(6),...kmh.slice(8)];
   const observations=kmh.map((v,i)=>({file:String(i).padStart(4,'0')+'.png',start_ms:1000+i*100,end_ms:1010+i*100,
-    age_ms:60,sequence:i+1,state:{speed:{valid:true,kmh:v,time_ms:1000+i*100},gear:{valid:true,value:'2'}}}));
+    age_ms:60,generation:1,received_at_ms:5350+i*100,frame_age_ms:50,roundtrip_ms:5,sequence:i+1,state:{speed:{valid:true,kmh:v,time_ms:1000+i*100},gear:{valid:true,value:'2'}}}));
   const commands=[];
-  for(let i=0;i<6;i++)commands.push({elapsed_ms:200+i*40,reason:'bounded_gas',command:{steer:0,throttle:.35,brake:0,duration_ms:200},...(withSource?{source:{capture_start_ms:900+i*40}}:{})});
-  for(let i=0;i<3;i++)commands.push({elapsed_ms:500+i*40,reason:'brake_while_forward_moving',command:{steer:0,throttle:.35*0,brake:.35*scale,duration_ms:200},...(withSource?{source:{capture_start_ms:1200+i*40}}:{})});
-  return {schema_version:2,session_id:'synthetic-'+scale,dose:'low',parameters:{throttle:.35,gas_ms:900,steer:0},observations,commands,...extra};
+  for(let i=0;i<20;i++)commands.push({elapsed_ms:200+i*40,reason:'bounded_gas',command:{steer:0,throttle:.35,brake:0,duration_ms:200},...(withSource?{source:{capture_start_ms:900+i*40}}:{})});
+  for(let i=0;i<=10+hold*2.5;i++)commands.push({elapsed_ms:1000+i*40,reason:'brake_while_forward_moving',command:{steer:0,throttle:.35*0,brake:.35*scale,duration_ms:200},...(withSource?{source:{capture_start_ms:1200+i*40}}:{})});
+  return {command_clock_origin_ms:withSource?5000:undefined,schema_version:2,session_id:'synthetic-'+scale,dose:'low',parameters:{throttle:.35,gas_ms:900,steer:0},observations,commands,...extra};
 }
 
 test('one saved attempt yields reaction, acceleration, deceleration and stop time',()=>{
@@ -28,14 +28,14 @@ test('one saved attempt yields reaction, acceleration, deceleration and stop tim
  assert.equal(m.motion.stopped_after_motion,true);
  assert.ok(m.motion.time_to_stop_ms>=600);
  assert.equal(m.motion.creep_frames,0);
- assert.equal(m.timing.anchor.basis,'single_anchor_estimate');
+ assert.equal(m.timing.anchor.basis,'receipt_clock_estimate');
  assert.match(m.scope,/nothing here is a GTA driving result/);
 });
 
 test('an attempt without source-stamped commands refuses to report latency',()=>{
  const m=measureAttempt(attempt({withSource:false}));
  assert.equal(m.measurable,false);
- assert.deepEqual(m.blockers,['no_source_stamped_commands']);
+ assert.ok(m.blockers.includes('command_clock_mapping_required'));
  assert.equal(m.motion.reaction_ms,null);assert.equal(m.motion.brake_deceleration_mps2,null);
  assert.equal(m.timing.anchor,null);
 });
@@ -70,7 +70,7 @@ test('repetitions are compared by spread; a single luck run is not enough',()=>{
 });
 
 test('a caller-declared independent validation session changes only the blockers, not the status',()=>{
- const independent=Array.from({length:5},()=>measureAttempt(attempt({extra:{independent_validation:true}})));
+ const independent=Array.from({length:5},(_,i)=>measureAttempt(attempt({extra:{independent_validation:true,session_id:'independent-'+i}})));
  const c=compareAttempts(independent);
  assert.equal(c.status,'draft_pending_independent_validation');
  assert.equal(c.blockers.includes('independent_validation_sessions_missing'),false);
@@ -79,7 +79,7 @@ test('a caller-declared independent validation session changes only the blockers
 });
 
 test('draft coefficients are explicitly not a bundle and are rejected by the gate loader',async()=>{
- const comparison=compareAttempts(Array.from({length:5},()=>measureAttempt(attempt())));
+ const comparison=compareAttempts(Array.from({length:5},(_,i)=>measureAttempt(attempt({extra:{session_id:'repeat-'+i}}))));
  const draft=draftCoefficients(comparison,{sessions:['synthetic'],vehicleId:'synthetic-car'});
  assert.equal(draft.status,'draft');
  assert.ok(draft.blockers.includes('requires_independent_validation_sessions'));
@@ -105,10 +105,27 @@ test('the folder tool finds attempts, reviews them and writes a review file',asy
  }finally{await rm(root,{recursive:true,force:true});}
 });
 
-test('clock anchor reports scatter as uncertainty rather than pretending exact sync',()=>{
- const stable=captureClockAnchor({commands:[{elapsed_ms:100,source:{capture_start_ms:1000}},{elapsed_ms:200,source:{capture_start_ms:1100}}]});
+test('clock mapping uses receipt telemetry and refuses source-only timestamps',()=>{
+ const o=(start,received)=>({start_ms:start,frame_age_ms:20,received_at_ms:received,roundtrip_ms:4});
+ const stable=captureClockAnchor({command_clock_origin_ms:5000,observations:[o(1000,5120),o(1100,5220)]});
  assert.equal(stable.ok,true);assert.equal(stable.offset,900);assert.equal(stable.uncertainty_ms,5);
- const jittery=captureClockAnchor({commands:[{elapsed_ms:100,source:{capture_start_ms:1000}},{elapsed_ms:200,source:{capture_start_ms:1130}}]});
- assert.equal(jittery.uncertainty_ms,35);
- assert.equal(captureClockAnchor({commands:[]}).reason,'no_source_stamped_commands');
+ const jittery=captureClockAnchor({command_clock_origin_ms:5000,observations:[o(1000,5120),o(1130,5220)]});assert.equal(jittery.uncertainty_ms,35);
+ assert.equal(captureClockAnchor({commands:[{elapsed_ms:100,source:{capture_start_ms:1000}}]}).ok,false);
+});
+
+test('expired commands, invalid sources and duplicate sessions cannot produce coefficients',()=>{
+ const expired=attempt();for(const c of expired.commands)c.command.duration_ms=1;
+ assert.equal(measureAttempt(expired).motion.brake_deceleration_mps2,null);assert.equal(measureAttempt(expired).measurable,false);
+ const bad=attempt();bad.observations[4].state.speed.time_ms--;const broken=measureAttempt(bad);assert.equal(broken.measurable,false);assert.equal(broken.motion.reaction_ms,null);
+ const repeated=compareAttempts(Array(5).fill(measureAttempt(attempt())));assert.equal(repeated.status,'insufficient_evidence');assert.equal(draftCoefficients(repeated).braking_mps2,null);
+ const parked=compareAttempts(Array.from({length:5},(_,i)=>measureAttempt(attempt({kmh:Array(15).fill(0),extra:{session_id:'parked-'+i}}))));assert.equal(parked.status,'insufficient_evidence');
+ assert.throws(()=>compareAttempts([measureAttempt(attempt())],{minRepetitions:NaN}));
+});
+test('braking time starts at first brake, not its final heartbeat',()=>{
+ const m=measureAttempt(attempt());assert.equal(m.motion.time_to_stop_ms,600);assert.equal(m.motion.reaction_ms,500);
+ const mixed=compareAttempts(Array.from({length:10},(_,i)=>measureAttempt(attempt({extra:{session_id:'p-'+i,profile:{vehicle_id:i<5?'a':'b'}}}))));assert.equal(mixed.status,'insufficient_evidence');assert.ok(mixed.blockers.includes('mixed_calibration_profiles'));
+});
+
+test('reverse motion cannot be treated as forward braking evidence',()=>{
+ const a=attempt();for(const o of a.observations)o.state.gear.value='R';const m=measureAttempt(a);assert.equal(m.measurable,false);assert.equal(m.motion.brake_deceleration_mps2,null);assert.ok(m.blockers.includes('forward_gear_not_verified'));
 });

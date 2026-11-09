@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 // Offline false-free audit: runs the working perception on labelled development
 // frames (or on a saved recording) and checks where the mask calls "free" a place
 // a human marked as curb, pole, standing car or blocked view. No input, no bridge.
@@ -33,7 +34,7 @@ export async function auditLabels({labelFile,resolveImage,analyze,intent='lane_f
     latency_ms:percentiles(frames.map(f=>f.analysis_ms).filter(Number.isFinite)),frames};
 }
 
-const isMain=process.argv[1]&&path.resolve(process.argv[1])===path.resolve(new URL(import.meta.url).pathname);
+const isMain=process.argv[1]&&path.resolve(process.argv[1])===path.resolve(fileURLToPath(import.meta.url));
 if(isMain){
   const arg=(k,f)=>process.argv.find(a=>a.startsWith('--'+k+'='))?.split('=').slice(1).join('=')??f;
   const labelFile=process.argv[2];

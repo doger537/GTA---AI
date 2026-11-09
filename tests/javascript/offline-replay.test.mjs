@@ -6,8 +6,8 @@ import {StraightStopSkill} from '../../packages/control/straight-stop.mjs';
 
 const geometry={full_width:1280,full_height:668,left:1049,top:507,width:167,height:94};
 const sample=(i,overrides={})=>({file:String(i).padStart(6,'0')+'.jpg',hud_file:String(i).padStart(6,'0')+'-hud.png',
-  minimap_file:String(i).padStart(6,'0')+'-map.png',sequence:i+1,capture_start_ms:1000+i*125,capture_end_ms:1010+i*125,
-  age_ms:60,capture_skew_ms:0,hud_geometry:geometry,...overrides});
+  minimap_file:String(i).padStart(6,'0')+'-map.png',generation:1,sequence:i+1,capture_start_ms:1000+i*125,capture_end_ms:1010+i*125,
+  age_ms:60,capture_skew_ms:0,hud_geometry:{...geometry},...overrides});
 const rows=[{y:.48,left:.3,right:.7,center:.5},{y:.54,left:.3,right:.7,center:.5},{y:.60,left:.3,right:.7,center:.5}];
 
 async function recording(count=8){
@@ -59,7 +59,7 @@ test('OCR reads the stored HUD at the recorded capture time and vision the match
   assert.deepEqual(seen.hud,[1000,1125,1250,1375,1500,1625]);
   assert.deepEqual(seen.road,Array(6).fill('road'));
   assert.equal(report.summary.ocr_used,true);assert.equal(report.summary.vision_used,true);
-  assert.equal(report.summary.decision_states.ACCELERATE,6);
+  assert.equal(report.summary.decision_states.FAULT,6);assert.equal(report.summary.frames_processed,6);
   assert.equal(report.summary.driving_verified,false);
   assert.equal(report.game_input_sent,false);
  }finally{await rm(root,{recursive:true,force:true});}
@@ -97,4 +97,23 @@ test('path overlay export drops out with an error instead of failing the run',as
  assert.equal(typeof result.error,'string');
  const nothing=await renderPathOverlay({roadBytes:Buffer.from('x'),semantic:null,corridor:{valid:false},file:null});
  assert.equal(nothing.reason,'nothing_to_draw');
+});
+
+test('sampling only limits report rows, not temporal processing or manifest integrity',async()=>{
+ const {root,samples}=await recording(6);try{let calls=0;
+ const r=await replayObservations(root,{sampling:2,hudProfile:x=>x,readerFactory:async()=>({read:async(b,t)=>{calls++;return {speed:{valid:true,kmh:0,time_ms:t},gear:{valid:true,value:'1'}};}})});
+ assert.equal(calls,6);assert.equal(r.rows.length,2);assert.equal(r.summary.frames_processed,6);
+ for(const kind of ['geometry','generation']){const copy=structuredClone(samples);if(kind==='geometry')copy[2].hud_geometry.width--;else copy[2].generation++;
+ await writeFile(path.join(root,'samples.jsonl'),copy.map(JSON.stringify).join('\n'));
+ await assert.rejects(replayObservations(root,{sampling:2}),/changed/);}
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+test('replay --skill really runs decisions through the CLI without loading real models',async()=>{
+ const {execFileSync}=await import('node:child_process'),{fileURLToPath,pathToFileURL}=await import('node:url'),{root}=await recording(6);
+ try{const loader=path.join(root,'preload.mjs'),out=path.join(root,'report.json');
+ const perception=new URL('../../packages/perception/perception.mjs',import.meta.url).href,reader=new URL('../../packages/perception/vehicle-state.mjs',import.meta.url).href;
+ await writeFile(loader,'import {Perception} from '+JSON.stringify(perception)+';import {VehicleStateReader} from '+JSON.stringify(reader)+';Perception.load=async()=>({analyze:async()=>({road_fraction:.4,rows:[],semantic:null}),session:{release:async()=>{}}});VehicleStateReader.create=async()=>({read:async(b,t)=>({speed:{valid:true,kmh:3,time_ms:t},gear:{valid:true,value:"1"}}),close:async()=>{}});');
+ execFileSync(process.execPath,['--import',pathToFileURL(loader).href,fileURLToPath(new URL('../../experiments/tools/replay-observations.mjs',import.meta.url)),root,'--frames=2','--skill','--no-overlay','--out='+out],{stdio:'pipe'});
+ const result=JSON.parse(await readFile(out,'utf8'));assert.ok(Object.keys(result.summary.decision_states).length>0);assert.equal(result.summary.frames_processed,6);assert.equal(result.rows[0].decision.command.throttle,0);
+ }finally{await rm(root,{recursive:true,force:true});}
 });

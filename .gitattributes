@@ -1,0 +1,4 @@
+# These JSON assets have byte hashes in models-manifest.json.
+configs/segformer-config.json text eol=lf
+configs/gear-templates.json text eol=lf
+configs/hud-digit-prototypes.json text eol=lf

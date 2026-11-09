@@ -12,8 +12,13 @@ export function loadSessionFiles({samples,session}){
   if(!Array.isArray(samples)||!samples.length)throw Error('A nonempty samples.jsonl is required');
   if(session?.source!=='single_capture')throw Error('A single-capture observation recording is required');
   for(const [i,r] of samples.entries()){
-    for(const key of ['file','hud_file'])if(typeof r[key]!=='string'||path.basename(r[key])!==r[key]||!/^\d+(?:-hud)?\.(?:jpg|png)$/.test(r[key]))throw Error('Invalid source image name at '+i);
+    for(const key of ['file','hud_file','minimap_file'])if(typeof r[key]!=='string'||path.basename(r[key])!==r[key]||!/^\d+(?:-(?:hud|map))?\.(?:jpg|png)$/.test(r[key]))throw Error('Invalid source image name at '+i);
+    const stem=r.file.replace(/\.jpg$/,'');
+    if(!/^\d+\.jpg$/.test(r.file)||r.hud_file!==stem+'-hud.png'||r.minimap_file!==stem+'-map.png')throw Error('Mixed source image names at '+i);
     if(!Number.isSafeInteger(r.sequence)||r.sequence<1||!Number.isFinite(r.capture_start_ms)||!Number.isFinite(r.capture_end_ms)||r.capture_start_ms>r.capture_end_ms)throw Error('Invalid capture manifest at '+i);
+    if(!Number.isSafeInteger(r.generation)||r.generation<0||i&&r.generation!==samples[0].generation)throw Error('Recording generation changed at '+i);
+    if(!Number.isFinite(r.age_ms)||r.age_ms<r.capture_end_ms-r.capture_start_ms)throw Error('Invalid recording age at '+i);
+    if(i&&JSON.stringify(r.hud_geometry)!==JSON.stringify(samples[0].hud_geometry))throw Error('HUD geometry changed within the recording');
     if(r.capture_skew_ms!==0)throw Error('Separately captured components cannot be replayed as one observation at '+i);
     if(i&&(r.sequence<=samples[i-1].sequence||r.capture_start_ms<=samples[i-1].capture_start_ms))throw Error('Non-increasing recording timeline at '+i);
   }
@@ -58,8 +63,8 @@ export async function renderPathOverlay({roadBytes,semantic,corridor,file}){
 }
 
 // Optional human labels stay authoritative. Nothing is derived from predictions.
-function labelled(annotations,file){
-  const row=annotations?.rows?.find(r=>r.file===file);
+function labelled(annotations,file,session){
+  const row=annotations?.rows?.find(r=>r.file===file&&(!r.session||r.session===session));
   if(!row)return null;
   const speed=Number.isFinite(row.speed)?row.speed:null,gear=/^[RN1-8]$/.test(row.gear??'')?row.gear:null;
   return {speed,gear,partial:speed===null||gear===null};
@@ -68,13 +73,14 @@ function labelled(annotations,file){
 export async function replayObservations(root,{
   readerFactory,hudProfile,visionFactory,intent='lane_follow',sampling=40,
   skill=null,annotations=null,overlay=true,output=null,clock=()=>performance.now()
-}={}={}){
+}={}){
   // A plain options object is a skill configuration; only an adapter with update() runs.
   const skillRunner=skill&&typeof skill.update==='function'?skill:skill?skill.runner??null:null;
   const samples=loadSessionFiles({
     samples:(await readFile(path.join(root,'samples.jsonl'),'utf8')).trim().split('\n').filter(Boolean).map(JSON.parse),
     session:JSON.parse(await readFile(path.join(root,'session.json'),'utf8'))});
   const session=JSON.parse(await readFile(path.join(root,'session.json'),'utf8'));
+  if(annotations?.session&&annotations.session!==session.id)throw Error('Annotations belong to another session');
   const selected=sampleUniform(samples,sampling);
   const geometryKey=JSON.stringify(selected[0].hud_geometry);
   if(selected.some(r=>JSON.stringify(r.hud_geometry)!==geometryKey))throw Error('HUD geometry changed within the recording');
@@ -87,19 +93,19 @@ export async function replayObservations(root,{
   try{
     if(readerFactory){reader=await readerFactory(hudProfile(selected[0].hud_geometry));}
     if(visionFactory)vision=await visionFactory();
-    for(const [index,s] of selected.entries()){
+    for(const [index,s] of samples.entries()){
       const hudBytes=await readFile(path.join(root,s.hud_file)),roadBytes=await readFile(path.join(root,s.file));
       const started=clock();
       const state=reader?await reader.read(hudBytes,s.capture_start_ms):null;
       const p=vision?await vision.analyze(roadBytes):null;
       const analysisMs=clock()-started;
-      const truth=labelled(annotations,s.file);
+      const truth=labelled(annotations,s.file,session.id);
       const row={index,file:s.file,sequence:s.sequence,capture_start_ms:s.capture_start_ms,capture_end_ms:s.capture_end_ms,recorded_age_ms:s.age_ms,
         hud_sha256:sha256(hudBytes),road_sha256:sha256(roadBytes),analysis_ms:analysisMs,label:truth,state,vision:p?{road_fraction:p.road_fraction,rows:p.rows,vehicles:p.vehicles?.length??0,inference_ms:p.inference_ms}:null};
       const corridor=p?.semantic?connectedRoadGeometry(p.semantic,intent):null;
       if(skillRunner){
         row.corridor=corridor?{valid:corridor.valid,reason:corridor.reason,points:corridor.points??null,near_offset:corridor.near_offset??null,curvature:corridor.curvature??null}:null;
-        const skillFrame={sequence:s.sequence,capture_start_ms:s.capture_start_ms,capture_end_ms:s.capture_end_ms,age_ms:s.age_ms,state,vision:p,stop_requested:Boolean(s.stop_requested??skill?.stop_requested)};
+        const skillFrame={generation:s.generation,corridor,sequence:s.sequence,capture_start_ms:s.capture_start_ms,capture_end_ms:s.capture_end_ms,age_ms:s.age_ms,state,vision:p,stop_requested:Boolean(s.stop_requested??skill?.stop_requested)};
         const decision=skillRunner.update(skillFrame);
         row.decision={corridor_valid:row.corridor?.valid===true,state:decision.state,reason:decision.reason,command:decision.command,lateral:decision.lateral,stop_confirmed:decision.stop_confirmed,pedal_release_allowed:decision.pedal_release_allowed,actuation_allowed:decision.actuation_allowed};
         if(overlay&&p?.semantic){
@@ -109,14 +115,14 @@ export async function replayObservations(root,{
           row.decision.overlay_file=rendered.file??null;
         }
       }
-      rows.push(row);
+      if(selected.includes(s))rows.push(row);
     }
   }finally{await reader?.close?.();if(vision)await Promise.allSettled([vision.session?.release?.(),vision.semantic?.session?.release?.()]);}
 
   const decisions=rows.map(r=>r.decision).filter(Boolean);
   const speedErrors=rows.filter(r=>r.state?.speed?.valid&&Number.isFinite(r.label?.speed)).map(r=>Math.abs(r.state.speed.kmh-r.label.speed));
   const summary={
-    frames_recorded:samples.length,frames_replayed:rows.length,ocr_used:Boolean(reader),vision_used:Boolean(vision),
+    frames_processed:samples.length,frames_recorded:samples.length,frames_replayed:rows.length,ocr_used:Boolean(reader),vision_used:Boolean(vision),
     valid_speed:rows.filter(r=>r.state?.speed?.valid).length,
     valid_gear:rows.filter(r=>r.state?.gear?.valid).length,
     labelled_speed:rows.filter(r=>Number.isFinite(r.label?.speed)).length,
@@ -134,7 +140,7 @@ export async function replayObservations(root,{
     driving_verified:false
   };
   const report={session:session.id,role:session.role,camera_declared:session.camera_declared,camera_verified:session.camera_verified,
-    intent,sampling:{requested:sampling,replayed:rows.length,method:'uniform chronological positions over the recording'},
+    intent,sampling:{requested:sampling,replayed:rows.length,method:'uniform report positions; every source frame processed sequentially'},
     scope:'Offline replay of recorded observations. OCR reads the stored HUD PNG at the recorded capture time; road vision reads the matching JPEG. No bridge, no game input, no actuation. Ages are the recorded receipt ages, not a live loop measurement.',
     game_input_sent:false,summary,rows};
   if(output){await mkdir(path.dirname(output),{recursive:true});await writeFile(output,JSON.stringify(report,null,2));}

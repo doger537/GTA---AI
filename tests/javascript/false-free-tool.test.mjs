@@ -1,3 +1,4 @@
+import {fileURLToPath} from 'node:url';
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
 import {mkdtemp,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';import path from 'node:path';
@@ -68,10 +69,18 @@ test('the template tool writes once and refuses to overwrite real labels',async(
  try{
   await writeFile(path.join(dir,'000000.jpg'),'x');await writeFile(path.join(dir,'000010.jpg'),'x');
   const out=path.join(dir,'labels.json');
-  execFileSync(process.execPath,['experiments/tools/make-label-template.mjs',dir,'--out='+out],{cwd:new URL('../..',import.meta.url).pathname});
+  execFileSync(process.execPath,['experiments/tools/make-label-template.mjs',dir,'--out='+out],{cwd:fileURLToPath(new URL('../..',import.meta.url))});
   const written=JSON.parse(await readFile(out,'utf8'));
   assert.equal(written.frames.length,2);
   assert.equal(written.frames.every(f=>f.points.length===0),true);
-  assert.throws(()=>execFileSync(process.execPath,['experiments/tools/make-label-template.mjs',dir,'--out='+out],{cwd:new URL('../..',import.meta.url).pathname,stdio:'pipe'}),/Refusing to overwrite/);
+  assert.throws(()=>execFileSync(process.execPath,['experiments/tools/make-label-template.mjs',dir,'--out='+out],{cwd:fileURLToPath(new URL('../..',import.meta.url)),stdio:'pipe'}),/Refusing to overwrite/);
  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('Windows-compatible CLI main detection executes usage checks before model loading',async()=>{
+ const {spawnSync}=await import('node:child_process');
+ for(const name of ['analyze-calibration','analyze-stop-observations','audit-false-free','make-label-template']){
+  const result=spawnSync(process.execPath,[fileURLToPath(new URL('../../experiments/tools/'+name+'.mjs',import.meta.url))],{encoding:'utf8'});
+  assert.notEqual(result.status,0,name);assert.match(result.stderr,/Usage:/,name);
+ }
 });
