@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "scope": "Single native development11 from8Nov, visually labelled before new OCR; not protected validation or independent accuracy evidence.",
+  "geometry": {
+    "full_width": 1904,
+    "full_height": 993,
+    "left": 1561,
+    "top": 754,
+    "width": 248,
+    "height": 140
+  },
+  "cases": [
+    {
+      "id": "eleven",
+      "file": "eleven.png",
+      "sha256": "cb0e9bf4fba5b588aecc60cdd347c4700f495183241f21e71e0510c79cb03690",
+      "speed_kmh": 11,
+      "gear": "1",
+      "recording": "2026-11-08T15-40-33.499Z",
+      "source_file": "000011-hud.png",
+      "source_sequence": 85,
+      "capture_start_ms": 130053,
+      "source_role": "development",
+      "review_source": "assistant_visual_source_contact_sheet_before_OCR"
+    }
+  ]
+}

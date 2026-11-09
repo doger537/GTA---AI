@@ -7,6 +7,7 @@ import {confirmSingleGlyph} from './single-glyph-speed.mjs';
 import {confirmSegmentedSpeed} from './segmented-speed.mjs';
 import {loadDigitModel,matchHudDigits,confirmDigitModel} from './hud-digit-model.mjs';
 import {confirmLoopSpeed} from './loop-speed.mjs';
+import {elevenGlyphs,confirmElevenSpeed} from './eleven-speed.mjs';
 
 export function speedTimingCheck(kmh,time_ms,previous){
   if(!Number.isFinite(time_ms))return {valid:false,reason:'invalid_capture_time'};
@@ -71,6 +72,14 @@ export class SpeedReader {
       loop=await confirmLoopSpeed(this.worker,source,roi.width,roi.height,[primary,secondary,...(padded?.candidates??[])]);
       if(loop.valid)data={text:loop.text,confidence:loop.confidence};
     }
+    let eleven=null;
+    // Even agreeing whole-string OCR may drop a repeated one. Source evidence
+    // for two ones must prevent a confident 1 when confirmation of 11 fails.
+    const droppedOne=!dash&&this.roi.separated_eleven_confirmation===true&&data.text.trim()==='1'&&elevenGlyphs(source,roi.width,roi.height);
+    if(!dash&&this.roi.separated_eleven_confirmation===true&&(droppedOne||!padded?.valid&&!glyph?.valid&&!segmented?.valid&&!font?.valid&&!loop?.valid&&!(secondary&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text&&/^\d{1,3}(\.\d)?$/.test(primary.text)))){
+      eleven=await confirmElevenSpeed(this.worker,source,roi.width,roi.height,[primary,secondary,...(padded?.candidates??[])]);
+      if(eleven.valid)data={text:eleven.text,confidence:eleven.confidence};
+    }
     const text=data.text.trim(),numeric=/^\d{1,3}(\.\d)?$/.test(text)&&data.confidence>=75;
     // OCR punctuation alone cannot prove that the car is stopped.
     const unverifiedDash=!dash&&this.roi.dash_means_zero===true&&/^[-–—]$/.test(text);
@@ -78,12 +87,12 @@ export class SpeedReader {
     const kmh=numeric?Number(text):zero?0:NaN;
     let valid=Number.isFinite(kmh)&&kmh<=200&&(zero||data.confidence>=75);
     let rejection_reason=valid?null:unverifiedDash?'unverified_zero_dash':'unreadable_or_out_of_range_speed',temporal_check=null;
-    const consensus=!this.roi.require_consensus||zero||padded?.valid||glyph?.valid||segmented?.valid||font?.valid||loop?.valid||(secondary&&/^\d{1,3}(\.\d)?$/.test(primary.text)&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text);
+    const consensus=(!droppedOne||eleven?.valid)&&(!this.roi.require_consensus||zero||padded?.valid||glyph?.valid||segmented?.valid||font?.valid||loop?.valid||eleven?.valid||(secondary&&/^\d{1,3}(\.\d)?$/.test(primary.text)&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text));
     if(!consensus){valid=false;rejection_reason=unverifiedDash?'unverified_zero_dash':'ocr_unconfirmed';}
     if(valid){temporal_check=speedTimingCheck(kmh,time_ms,this.previous);if(!temporal_check.valid){valid=false;rejection_reason=temporal_check.reason;}}
     if(valid)this.previous={kmh,time_ms};
     else if(this.previous&&time_ms-this.previous.time_ms>2000)this.previous=null;
-    return {valid,kmh:valid?kmh:null,speed_mps:valid?kmh/3.6:null,confidence:zero?null:data.confidence,text,source:!consensus?'ocr_unconfirmed':zero?'configured_zero_dash':loop?.valid?'ocr_closed_loop_glyph':font?.valid?'ocr_digit_model_confirmation':segmented?.valid?'ocr_segmented_seven':glyph?.valid?'ocr_glyph_shape_confirmation':padded?.valid?'ocr_padded_consensus':'ocr',rejection_reason,...(temporal_check?{temporal_check}:{}),...(this.roi.require_consensus?{candidates:[primary,secondary]}:{}),...(padded?{padded_candidates:padded.candidates}:{}),...(glyph?{glyph_confirmation:glyph}:{}),...(segmented?{segmented_confirmation:segmented}:{}),...(font?{digit_model_confirmation:font}:{}),...(loop?{loop_confirmation:loop}:{}),time_ms};
+    return {valid,kmh:valid?kmh:null,speed_mps:valid?kmh/3.6:null,confidence:zero?null:data.confidence,text,source:!consensus?'ocr_unconfirmed':zero?'configured_zero_dash':eleven?.valid?'ocr_separated_eleven':loop?.valid?'ocr_closed_loop_glyph':font?.valid?'ocr_digit_model_confirmation':segmented?.valid?'ocr_segmented_seven':glyph?.valid?'ocr_glyph_shape_confirmation':padded?.valid?'ocr_padded_consensus':'ocr',rejection_reason,...(temporal_check?{temporal_check}:{}),...(this.roi.require_consensus?{candidates:[primary,secondary]}:{}),...(padded?{padded_candidates:padded.candidates}:{}),...(glyph?{glyph_confirmation:glyph}:{}),...(segmented?{segmented_confirmation:segmented}:{}),...(font?{digit_model_confirmation:font}:{}),...(loop?{loop_confirmation:loop}:{}),...(eleven?{eleven_confirmation:eleven}:{}),time_ms};
   }
   async close(){await this.worker.terminate();}
 }
