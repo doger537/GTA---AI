@@ -6,6 +6,7 @@ import {paddedSpeedConsensus,agreeSpeedViews} from './padded-speed.mjs';
 import {confirmSingleGlyph} from './single-glyph-speed.mjs';
 import {confirmSegmentedSpeed} from './segmented-speed.mjs';
 import {loadDigitModel,matchHudDigits,confirmDigitModel} from './hud-digit-model.mjs';
+import {confirmLoopSpeed} from './loop-speed.mjs';
 
 export function speedTimingCheck(kmh,time_ms,previous){
   if(!Number.isFinite(time_ms))return {valid:false,reason:'invalid_capture_time'};
@@ -30,7 +31,7 @@ export class SpeedReader {
     const meta=await sharp(bytes).metadata();
     const roi=this.roi.normalized?{left:Math.round(this.roi.left*meta.width),top:Math.round(this.roi.top*meta.height),width:Math.round(this.roi.width*meta.width),height:Math.round(this.roi.height*meta.height)}:{left:this.roi.left,top:this.roi.top,width:this.roi.width,height:this.roi.height};
     const source=await sharp(bytes).extract(roi).removeAlpha().raw().toBuffer();
-    const dash=this.roi.dash_means_zero===true&&detectZeroDash(source,roi.width,roi.height,{cyan:this.roi.dash_cyan===true});
+    const dash=this.roi.dash_means_zero===true&&detectZeroDash(source,roi.width,roi.height,{cyan:this.roi.dash_cyan===true,antialias:this.roi.dash_antialias===true});
     const crop=await sharp(bytes).extract(roi).resize({height:100}).grayscale().normalize().png().toBuffer();
     let data=dash?{text:'-',confidence:0}:(await this.worker.recognize(crop)).data;
     const primary={text:data.text.trim(),confidence:data.confidence};let secondary=null;
@@ -65,6 +66,11 @@ export class SpeedReader {
       font=confirmDigitModel(matchHudDigits(source,roi.width,roi.height,this.digitModel),[primary,secondary,...(padded?.candidates??[])]);
       if(font.valid)data={text:font.text,confidence:font.confidence};
     }
+    let loop=null;
+    if(!dash&&this.roi.closed_loop_confirmation===true&&!padded?.valid&&!glyph?.valid&&!segmented?.valid&&!font?.valid&&!(secondary&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text&&/^\d{1,3}(\.\d)?$/.test(primary.text))){
+      loop=await confirmLoopSpeed(this.worker,source,roi.width,roi.height,[primary,secondary,...(padded?.candidates??[])]);
+      if(loop.valid)data={text:loop.text,confidence:loop.confidence};
+    }
     const text=data.text.trim(),numeric=/^\d{1,3}(\.\d)?$/.test(text)&&data.confidence>=75;
     // OCR punctuation alone cannot prove that the car is stopped.
     const unverifiedDash=!dash&&this.roi.dash_means_zero===true&&/^[-–—]$/.test(text);
@@ -72,12 +78,12 @@ export class SpeedReader {
     const kmh=numeric?Number(text):zero?0:NaN;
     let valid=Number.isFinite(kmh)&&kmh<=200&&(zero||data.confidence>=75);
     let rejection_reason=valid?null:unverifiedDash?'unverified_zero_dash':'unreadable_or_out_of_range_speed',temporal_check=null;
-    const consensus=!this.roi.require_consensus||zero||padded?.valid||glyph?.valid||segmented?.valid||font?.valid||(secondary&&/^\d{1,3}(\.\d)?$/.test(primary.text)&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text);
+    const consensus=!this.roi.require_consensus||zero||padded?.valid||glyph?.valid||segmented?.valid||font?.valid||loop?.valid||(secondary&&/^\d{1,3}(\.\d)?$/.test(primary.text)&&primary.confidence>=75&&secondary.confidence>=75&&primary.text===secondary.text);
     if(!consensus){valid=false;rejection_reason=unverifiedDash?'unverified_zero_dash':'ocr_unconfirmed';}
     if(valid){temporal_check=speedTimingCheck(kmh,time_ms,this.previous);if(!temporal_check.valid){valid=false;rejection_reason=temporal_check.reason;}}
     if(valid)this.previous={kmh,time_ms};
     else if(this.previous&&time_ms-this.previous.time_ms>2000)this.previous=null;
-    return {valid,kmh:valid?kmh:null,speed_mps:valid?kmh/3.6:null,confidence:zero?null:data.confidence,text,source:!consensus?'ocr_unconfirmed':zero?'configured_zero_dash':font?.valid?'ocr_digit_model_confirmation':segmented?.valid?'ocr_segmented_seven':glyph?.valid?'ocr_glyph_shape_confirmation':padded?.valid?'ocr_padded_consensus':'ocr',rejection_reason,...(temporal_check?{temporal_check}:{}),...(this.roi.require_consensus?{candidates:[primary,secondary]}:{}),...(padded?{padded_candidates:padded.candidates}:{}),...(glyph?{glyph_confirmation:glyph}:{}),...(segmented?{segmented_confirmation:segmented}:{}),...(font?{digit_model_confirmation:font}:{}),time_ms};
+    return {valid,kmh:valid?kmh:null,speed_mps:valid?kmh/3.6:null,confidence:zero?null:data.confidence,text,source:!consensus?'ocr_unconfirmed':zero?'configured_zero_dash':loop?.valid?'ocr_closed_loop_glyph':font?.valid?'ocr_digit_model_confirmation':segmented?.valid?'ocr_segmented_seven':glyph?.valid?'ocr_glyph_shape_confirmation':padded?.valid?'ocr_padded_consensus':'ocr',rejection_reason,...(temporal_check?{temporal_check}:{}),...(this.roi.require_consensus?{candidates:[primary,secondary]}:{}),...(padded?{padded_candidates:padded.candidates}:{}),...(glyph?{glyph_confirmation:glyph}:{}),...(segmented?{segmented_confirmation:segmented}:{}),...(font?{digit_model_confirmation:font}:{}),...(loop?{loop_confirmation:loop}:{}),time_ms};
   }
   async close(){await this.worker.terminate();}
 }

@@ -3,6 +3,10 @@ import {calibrationCommand} from '../../packages/control/calibration-policy.mjs'
 import {hudProfile} from '../../packages/perception/hud-profile.mjs';import {VehicleStateReader} from '../../packages/perception/vehicle-state.mjs';import {readFile} from 'node:fs/promises';import {GtaClient} from '../../packages/protocols/bridge-client.mjs';
 import sharp from 'sharp';import {sevenGlyph,confirmSingleGlyph} from '../../packages/perception/single-glyph-speed.mjs';
 const hudGeometry=JSON.parse(await readFile(new URL('../../fixtures/native-hud/geometry.json',import.meta.url)));
+test('all six real calibration HUD cases read correctly without weakening the confidence checks',async()=>{
+ const root=new URL('../../fixtures/calibration-hud-20261108/',import.meta.url),m=JSON.parse(await readFile(new URL('labels.json',root),'utf8')),reader=await VehicleStateReader.create(hudProfile(m.geometry));
+ try{for(const item of m.cases){reader.speed.previous=null;const r=await reader.read(await readFile(new URL(item.file,root)),item.capture_start_ms);assert.equal(r.speed.valid,true,item.id);assert.equal(r.speed.kmh,item.speed_kmh,item.id);assert.equal(r.gear.value,item.gear,item.id);if(item.speed_kmh>0)assert.ok(r.speed.confidence>=75);}}finally{await reader.close();}
+});
 const observationResponse=()=>({bytes:Buffer.from([1,2,3,4,5,6]),headers:{'content-type':'application/octet-stream','x-observation-version':'1','x-road-bytes':'2','x-hud-bytes':'3','x-minimap-bytes':'1','x-generation':'4','x-frame-sequence':'8','x-capture-start-ms':'100','x-capture-end-ms':'110','x-frame-age-ms':'20','x-minimap-left':'0','x-minimap-top':'700','x-minimap-width':'400','x-minimap-height':'200',...Object.fromEntries(Object.entries(hudGeometry).map(([k,v])=>['x-hud-'+k.replaceAll('_','-'),String(v)]))},roundtrip_ms:25,delivery_ms:1,received_at_ms:200});
 test('Single-capture client splits payload without losing common timeline, geometry or generation',async()=>{
   const client=new GtaClient({url:'http://127.0.0.1',token:'test'});client.request=async()=>observationResponse();
