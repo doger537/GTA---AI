@@ -130,7 +130,7 @@ npm run test:python
 
 | Команда из корня | Что проверяет |
 |---|---|
-| `npm run test:core` | 124 теста базовой логики и включённых fixtures; без моделей, записей и игры |
+| `npm run test:core` | 134 теста базовой логики и включённых fixtures; без моделей, записей и игры |
 | `npm test` | 188 тестов, включая локальные ONNX/OCR-активы и Python mock-процесс |
 | `npm run test:python` | 43 unittest в подготовленном `training/training-env` |
 | `python -m unittest tests.python.test_ownership tests.python.test_decision_deadline tests.python.test_drive_safety` | 27 проверок владения/сроков/допуска на стандартной библиотеке; процессные проверки Windows пропускаются на других ОС |

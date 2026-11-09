@@ -320,7 +320,11 @@ namespace GtaControl {
                     var copyWatch=Stopwatch.StartNew();
                     using(var graphics=Graphics.FromImage(bitmap))graphics.CopyFromScreen(point.X,point.Y,0,0,bitmap.Size,CopyPixelOperation.SourceCopy);
                     captureWorkMs=copyWatch.Elapsed.TotalMilliseconds;
-                    end=FramePump.Clock.ElapsedMilliseconds;keysAfter=DrivingKeys();RequireFocus();seq=++observationSequence;gen=generation;
+                    // Sequence follows the copied bitmap, not the later focus/key recheck:
+                    // a stall in between must not misorder the capture identity.
+                    // Assigned once and never restored, so a rejected capture leaves a gap.
+                    seq=++observationSequence;
+                    end=FramePump.Clock.ElapsedMilliseconds;keysAfter=DrivingKeys();RequireFocus();gen=generation;
                 }
                 // All three views derive from this one immutable source bitmap.
                 var frame=ObservationFrame.Encode(bitmap,ObservationFrame.ParallelEncoding);frame.StartedMs=start;frame.FinishedMs=end;frame.Sequence=seq;frame.Generation=gen;frame.KeysBefore=keysBefore;frame.KeysAfter=keysAfter;frame.Navigation=navigation;frame.CaptureWorkMs=captureWorkMs;frame.AcquireMs=acquireWatch.Elapsed.TotalMilliseconds;return frame;
