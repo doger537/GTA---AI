@@ -3,7 +3,7 @@ import {sevenGlyph} from './single-glyph-speed.mjs';
 
 // Only isolated, complete native HUD glyphs. Never split touching ink or repair
 // cropped characters. Threshold and scales were selected on the development trip.
-export function segmentSpeedGlyphs(source,width,height){
+export function segmentSpeedGlyphs(source,width,height,{requireSeven=true}={}){
   if(!Number.isInteger(width)||!Number.isInteger(height)||width<3||height<3||source.length!==width*height*3)return null;
   const ink=Buffer.alloc(width*height,255),columns=new Uint8Array(width);
   for(let i=0;i<width*height;i++)if(Math.min(source[i*3],source[i*3+1],source[i*3+2])>210){ink[i]=0;columns[i%width]=1;}
@@ -26,7 +26,7 @@ export function segmentSpeedGlyphs(source,width,height){
     for(let y=0;y<b.height;y++)for(let x=0;x<b.width;x++)if(ink[(y+b.top)*width+x+b.left]===0)rgb.fill(255,((y+2)*w+x+2)*3,((y+2)*w+x+2)*3+3);
     b.seven=!!sevenGlyph(rgb,w,h);
   }
-  return boxes.some(b=>b.seven)?{ink,boxes}:null;
+  return !requireSeven||boxes.some(b=>b.seven)?{ink,boxes}:null;
 }
 
 // The known whole-string failures replace/drop a structurally verified seven.

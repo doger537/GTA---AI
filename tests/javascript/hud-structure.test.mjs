@@ -1,5 +1,7 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import sharp from 'sharp';
 import {detectZeroDash} from '../../packages/perception/zero-dash.mjs';import {loopSpeedGlyph,confirmLoopSpeed} from '../../packages/perception/loop-speed.mjs';import {hudProfile} from '../../packages/perception/hud-profile.mjs';
+import {elevenGlyphs,confirmElevenSpeed} from '../../packages/perception/eleven-speed.mjs';
+import {SpeedReader} from '../../packages/perception/speed-reader.mjs';
 const manifest=JSON.parse(await readFile(new URL('../../fixtures/calibration-hud-20261108/labels.json',import.meta.url),'utf8'));
 async function source(name){const image=await readFile(new URL('../../fixtures/'+(name==='nine'?'loop-speed-development':'calibration-hud-20261108')+'/'+name+'.png',import.meta.url)),meta=await sharp(image).metadata(),p=hudProfile(manifest.geometry).speed;const width=Math.round(p.width*meta.width),height=Math.round(p.height*meta.height),raw=await sharp(image).extract({left:Math.round(p.left*meta.width),top:Math.round(p.top*meta.height),width,height}).removeAlpha().raw().toBuffer();return {raw,width,height};}
 
@@ -44,4 +46,31 @@ test('subpixel dash requires a supported bright edge, never a bare dot or one st
 test('native shaded dashes recover with edge evidence and numeric glyphs never become zero',async()=>{
  for(const name of ['shaded-zero','reverse-zero']){const {raw,width,height}=await source(name);assert.equal(detectZeroDash(raw,width,height,{cyan:true}),false);assert.equal(detectZeroDash(raw,width,height,{cyan:true,antialias:true}),true);}
  for(const name of ['six','eight','seven']){const {raw,width,height}=await source(name);assert.equal(detectZeroDash(raw,width,height,{cyan:true,antialias:true}),false);}
+});
+
+async function elevenSource(){const bytes=await readFile(new URL('../../fixtures/eleven-speed/eleven.png',import.meta.url)),p=hudProfile(manifest.geometry).speed,m=await sharp(bytes).metadata(),width=Math.round(p.width*m.width),height=Math.round(p.height*m.height);return {raw:await sharp(bytes).extract({left:Math.round(p.left*m.width),top:Math.round(p.top*m.height),width,height}).removeAlpha().raw().toBuffer(),width,height};}
+
+test('eleven requires two complete headed upright ones, never one, three, touching, clipped or shifted ink',async()=>{
+ const {raw,width,height}=await elevenSource(),shape=elevenGlyphs(raw,width,height);assert.equal(shape.boxes.length,2);
+ assert.equal(elevenGlyphs(Buffer.alloc(raw.length),width,height),null);assert.equal(elevenGlyphs(raw.subarray(3),width,height),null);
+ const one=Buffer.from(raw),first=shape.boxes[0];for(let y=first.top;y<first.top+first.height;y++)one.fill(0,(y*width+first.left)*3,(y*width+first.left+first.width)*3);assert.equal(elevenGlyphs(one,width,height),null);
+ const joined=Buffer.from(raw);joined.fill(255,(12*width+36)*3,(12*width+37)*3);assert.equal(elevenGlyphs(joined,width,height),null);
+ const three=Buffer.from(raw);for(let y=0;y<height;y++)for(let x=30;x<36;x++)three.set(raw.subarray((y*width+x)*3,(y*width+x+1)*3),(y*width+x-7)*3);assert.equal(elevenGlyphs(three,width,height),null);
+ const clipped=await sharp(raw,{raw:{width,height,channels:3}}).extract({left:30,top:5,width:13,height:24}).raw().toBuffer();assert.equal(elevenGlyphs(clipped,13,24),null);
+ const shifted=Buffer.from(one),second=shape.boxes[1];for(let y=second.top;y<second.top+second.height;y++)shifted.fill(0,(y*width+second.left)*3,(y*width+second.left+second.width)*3);for(let y=first.top;y<first.top+first.height;y++)for(let x=0;x<first.width;x++){shifted.set(raw.subarray((y*width+first.left+x)*3,(y*width+first.left+x+1)*3),(y*width+first.left+x)*3);shifted.set(raw.subarray((y*width+second.left+x)*3,(y*width+second.left+x+1)*3),((y+3)*width+second.left+x)*3);}assert.equal(elevenGlyphs(shifted,width,height),null);
+ const bars=Buffer.alloc(raw.length);for(const x of [30,37])for(let y=5;y<29;y++)bars.fill(255,(y*width+x)*3,(y*width+x+3)*3);assert.equal(elevenGlyphs(bars,width,height),null);
+ for(const name of ['six','eight','nine','seven','clear-zero']){const s=await source(name);assert.equal(elevenGlyphs(s.raw,s.width,s.height),null,name);}
+});
+
+test('eleven requires four confident one readings and rejects different whole numbers',async()=>{
+ const {raw,width,height}=await elevenSource(),params=[],images=[],worker={setParameters:async p=>params.push(p),recognize:async image=>{images.push(image);return {data:{text:'1',confidence:90}};}};
+ const r=await confirmElevenSpeed(worker,raw,width,height,[{text:'1',confidence:95}]);assert.equal(r.valid,true);assert.equal(r.text,'11');assert.equal(images.length,4);assert.deepEqual(r.glyphs.flatMap(g=>g.candidates.map(c=>c.height)),[80,100,80,100]);assert.equal(params.at(-1).tessedit_pageseg_mode,'7');
+ for(const outputs of [[['1',90],['1',74]],[['1',90],['7',90]],[['1',90],['1',90],['1',90],['1',NaN]]]){const p=[],w={setParameters:async v=>p.push(v),recognize:async()=>{const [text,confidence]=outputs.shift();return {data:{text,confidence}};}};assert.equal((await confirmElevenSpeed(w,raw,width,height)).valid,false);assert.equal(p.at(-1).tessedit_char_whitelist,'0123456789.-');}
+ for(const text of ['0','10','12','17','111'])assert.equal((await confirmElevenSpeed({recognize:()=>{throw Error('Whole reading must veto before OCR');}},raw,width,height,[{text,confidence:90}])).valid,false,text);
+ const p=[],broken={setParameters:async v=>p.push(v),recognize:async()=>{throw Error('OCR failed');}};await assert.rejects(confirmElevenSpeed(broken,raw,width,height));assert.equal(p.at(-1).tessedit_pageseg_mode,'7');
+});
+
+test('source eleven cannot collapse to one even when both whole-string OCR views agree confidently',async()=>{
+ const bytes=await readFile(new URL('../../fixtures/eleven-speed/eleven.png',import.meta.url));
+ for(const weak of [false,true]){let calls=0;const worker={setParameters:async()=>{},recognize:async()=>({data:{text:'1',confidence:weak&&++calls===4?74:95}}),terminate:async()=>{}},reader=new SpeedReader(worker,hudProfile(manifest.geometry).speed);const r=await reader.read(bytes,1000);assert.equal(r.valid,!weak);assert.equal(r.kmh,weak?null:11);if(weak)assert.equal(r.rejection_reason,'ocr_unconfirmed');}
 });
