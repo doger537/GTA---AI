@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 
-// Only a complete, isolated 6 or 8. Topology confirms two OCR views; it never
+// Only a complete, isolated 6, 8 or 9. Topology confirms two OCR views; it never
 // assigns a number to a blank crop, open/clipped glyph or unsupported digit.
 export function loopSpeedGlyph(source,width,height){
   if(!Number.isInteger(width)||!Number.isInteger(height)||width<3||height<10||source.length!==width*height*3)return null;
@@ -19,29 +19,36 @@ export function loopSpeedGlyph(source,width,height){
   }
   if(components!==1)return null;
   holes.sort((a,b)=>a.centerY-b.centerY);
-  const text=holes.length===1&&holes[0].centerY>.55?'6':holes.length===2&&holes[0].centerY<.5&&holes[1].centerY>.5?'8':null;
+  // Nine has an upper loop and a right-hand descending stroke. An upper loop
+  // with a left stem (P-like ink) must not become a nine.
+  let rightTail=true;
+  for(let y=top+Math.ceil(h*.55);y<top+Math.floor(h*.8);y++){
+    let last=-1;for(let x=left;x<=right;x++)if(ink[y*width+x])last=x;
+    if(last<left+w*.5)rightTail=false;
+  }
+  const text=holes.length===1&&holes[0].centerY>.55?'6':holes.length===1&&holes[0].centerY<.45&&rightTail?'9':holes.length===2&&holes[0].centerY<.5&&holes[1].centerY>.5?'8':null;
   return text?{text,holes,box:{left,top,width:w,height:h}}:null;
 }
 
 export async function confirmLoopSpeed(worker,source,width,height,wholeViews=[]){
   const glyph=loopSpeedGlyph(source,width,height);
-  if(!glyph)return {valid:false,reason:'not_isolated_six_or_eight',candidates:[]};
+  if(!glyph)return {valid:false,reason:'not_isolated_loop_digit',candidates:[]};
   if(wholeViews.some(v=>v&&/^\d{1,3}$/.test(v.text)&&Number.isFinite(v.confidence)&&v.confidence>=75&&v.text!==glyph.text))return {valid:false,reason:'conflicting_whole_speed',candidates:[]};
-  const candidates=[];
+  const candidates=[],ink=Buffer.alloc(width*height,255);
+  for(let i=0;i<ink.length;i++)if(Math.min(source[i*3],source[i*3+1],source[i*3+2])>210)ink[i]=0;
+  // Preserve the verified white contour. Cyan glow can close an extra hole in
+  // six. Fixed raster sizes confirm it without a search for favourable output.
+  // Rotate nine to the six orientation before OCR, retaining its original
+  // topology and right tail as the evidence for mapping the result back to 9.
+  const rotation=glyph.text==='9'?180:0,expected=rotation?'6':glyph.text;
+  const isolated=await sharp(ink,{raw:{width,height,channels:1}}).extract(glyph.box).png().toBuffer();
   try{
     await worker.setParameters({tessedit_char_whitelist:'0123456789',tessedit_pageseg_mode:'8'});
-    for(const mode of ['white','cyan']){
-      const ink=Buffer.alloc(width*height,255);let left=width,top=height,right=-1,bottom=-1;
-      for(let i=0;i<ink.length;i++){
-        const r=source[i*3],g=source[i*3+1],b=source[i*3+2];
-        const on=mode==='white'?Math.min(r,g,b)>210:((g>180&&b>180&&b>r+10&&g>r+10)||Math.min(r,g,b)>220);
-        if(on){ink[i]=0;left=Math.min(left,i%width);right=Math.max(right,i%width);top=Math.min(top,Math.floor(i/width));bottom=Math.max(bottom,Math.floor(i/width));}
-      }
-      if(left<1||top<1||right>=width-1||bottom>=height-1||right<left||bottom<top)return {valid:false,reason:'incomplete_loop_view',candidates};
-      const image=await sharp(ink,{raw:{width,height,channels:1}}).extract({left,top,width:right-left+1,height:bottom-top+1}).resize({height:100,kernel:'nearest'}).extend({top:20,bottom:20,left:20,right:20,background:'white'}).png().toBuffer();
-      const {data}=await worker.recognize(image);candidates.push({mode,text:data.text.trim(),confidence:data.confidence});
+    for(const renderHeight of [80,100]){
+      const image=await sharp(isolated).rotate(rotation).resize({height:renderHeight,...(rotation?{width:Math.round(renderHeight*.6),fit:'fill'}:{}),kernel:'nearest'}).extend({top:20,bottom:20,left:20,right:20,background:'white'}).png().toBuffer();
+      const {data}=await worker.recognize(image);candidates.push({mode:'white',height:renderHeight,rotation,text:data.text.trim(),confidence:data.confidence});
     }
   }finally{await worker.setParameters({tessedit_char_whitelist:'0123456789.-',tessedit_pageseg_mode:'7'});}
-  const valid=candidates.length===2&&candidates.every(c=>c.text===glyph.text&&Number.isFinite(c.confidence)&&c.confidence>=75);
+  const valid=candidates.length===2&&candidates.every(c=>c.text===expected&&Number.isFinite(c.confidence)&&c.confidence>=75);
   return {valid,text:valid?glyph.text:'',confidence:valid?Math.min(...candidates.map(c=>c.confidence)):0,candidates,reason:valid?'closed_loops_and_two_ocr_views_agree':'loop_ocr_disagreement'};
 }

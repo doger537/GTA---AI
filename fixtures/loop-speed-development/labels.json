@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "scope": "Development-only cases from8Nov; not9Nov protected validation, independent accuracy, physical calibration or metric geometry.",
+  "geometry": {
+    "full_width": 1904,
+    "full_height": 993,
+    "left": 1561,
+    "top": 754,
+    "width": 248,
+    "height": 140
+  },
+  "cases": [
+    {
+      "id": "six-colour",
+      "file": "six-colour.png",
+      "sha256": "80a09dbeffb3ab43757fb3bf834e1d4164549b6372eb6fcbe53672ec07c196ca",
+      "speed_kmh": 6,
+      "gear": "1",
+      "recording": "2026-11-08T15-49-36.249Z",
+      "source_file": "000010-hud.png",
+      "source_sequence": 723,
+      "capture_start_ms": 672137,
+      "source_role": "development",
+      "review_source": "assistant_visual_source_images_before_candidate_predictions"
+    },
+    {
+      "id": "eight-scale",
+      "file": "eight-scale.png",
+      "sha256": "4762f20dae81edb8719a9f19c8706173248d0cd99d2132716c22862b58cbe14e",
+      "speed_kmh": 8,
+      "gear": "1",
+      "recording": "2026-11-08T15-49-36.249Z",
+      "source_file": "000057-hud.png",
+      "source_sequence": 770,
+      "capture_start_ms": 678605,
+      "source_role": "development",
+      "review_source": "assistant_visual_source_images_before_candidate_predictions"
+    },
+    {
+      "id": "nine",
+      "file": "nine.png",
+      "sha256": "3cf0406c283afebc1322509670a84f284339dcb71d8528c29730823a783b44bc",
+      "speed_kmh": 9,
+      "gear": "1",
+      "recording": "2026-11-08T15-40-33.499Z",
+      "source_file": "000009-hud.png",
+      "source_sequence": 83,
+      "capture_start_ms": 129718,
+      "source_role": "development",
+      "review_source": "assistant_visual_source_images_before_candidate_predictions"
+    }
+  ]
+}
