@@ -51,7 +51,7 @@ try{
 }catch(e){error=e.message;process.exitCode=1;}
 finally{
   if(worker)await worker.close();observing=false;if(observer)await observer;await reader.close();client.close();
-  const speeds=observations.filter(o=>o.state.speed.valid).map(o=>o.state.speed.kmh),report={dose,parameters:levels[dose],operator_stationary_gear:stationaryGear,reason,error,scope:'Bounded manually selected calibration; no route or neural driving. OCR availability limits measurement. Optional initial gear is visual operator input, never an OCR confidence claim.',summary:{frames:observations.length,valid_speed:speeds.length,peak_kmh:speeds.length?Math.max(...speeds):null,final_speed:observations.at(-1)?.state.speed??null},observations,commands};
+  const speeds=observations.filter(o=>o.state.speed.valid).map(o=>o.state.speed.kmh),report={schema_version:2,session_id:new Date().toISOString().replaceAll(':','-'),dose,parameters:levels[dose],operator_stationary_gear:stationaryGear,reason,error,scope:'Bounded manually selected calibration; no route or neural driving. OCR availability limits measurement. Optional initial gear is visual operator input, never an OCR confidence claim.',summary:{frames:observations.length,valid_speed:speeds.length,peak_kmh:speeds.length?Math.max(...speeds):null,final_speed:observations.at(-1)?.state.speed??null},observations,commands};
   report.capture_mode=nativeHud?'native_hud_png':'compact_jpeg';report.hud_geometry=firstHud?.hud??null;report.observer_error=observerError?.message??null;
   report.start_readiness=startReadiness;report.arm_readiness=armReadiness;
   await writeFile(new URL('report.json',root),JSON.stringify(report,null,2));console.log(JSON.stringify({report:root.pathname,error,reason,summary:report.summary},null,2));
