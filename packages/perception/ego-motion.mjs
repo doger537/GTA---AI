@@ -117,3 +117,96 @@ export function classifyMotionSource({roadShift,minimapMotion,thresholds={}}={})
   if(!roadSignificant&&mapSignificant)return {...base,source:'vehicle_motion',reason:'vehicle_motion_without_road_shift'};
   return {...base,source:'ambiguous',reason:'both_signals_moved'};
 }
+
+// Minimap motion: how far the map content moved between two minimap images. The
+// caller passes a grayscale buffer of the recorded minimap; nothing is inferred
+// from the road view. A map that did not move is reported as zero with its own
+// uncertainty, never reused as "the car turned".
+export function minimapProfile(image,{top=0.3,bottom=0.7}={}){
+  const w=image?.width,h=image?.height,data=image?.data;
+  if(!Number.isInteger(w)||!Number.isInteger(h)||!data||data.length<w*h)return {ok:false,reason:'invalid_minimap_image'};
+  if(!num(top)||!num(bottom)||top<0||bottom>1||bottom-top<0.05)return {ok:false,reason:'invalid_band'};
+  const y0=Math.max(0,Math.floor(top*h)),y1=Math.min(h-1,Math.ceil(bottom*h));
+  // Edge energy per column: map outlines and road edges move, flat map fill does not.
+  const profile=new Float64Array(w);
+  for(let y=y0;y<=y1;y++)for(let x=1;x<w-1;x++){
+    const i=y*w+x;
+    profile[x]+=Math.abs(data[i+1]-data[i-1]);
+  }
+  let energy=0;for(const v of profile)energy+=v;
+  if(energy<=0)return {ok:false,reason:'no_minimap_structure'};
+  for(let x=0;x<w;x++)profile[x]/=y1-y0+1;
+  return {ok:true,profile,width:w,band:{top:y0/h,bottom:y1/h},rows:y1-y0+1};
+}
+
+// Map-space displacement, not metres: no map scale is measured anywhere in this
+// project, so a metric claim is impossible and deliberately absent.
+export function minimapMotion(previous,current,options={}){
+  const shift=estimateShift(previous,current,options);
+  if(!shift.ok)return {...shift,ok:false,space:'map_pixels'};
+  return {...shift,ok:true,space:'map_pixels',fraction:shift.shift_pixels/previous.width,
+    honest_units:'fraction of the minimap width; map scale unknown, not metres'};
+}
+
+// Sequential motion over frames in recording order. Keeping it here makes the
+// inter-frame shift part of the analysis instead of a separate experiment: a
+// frame without a usable neighbour gets an explicit refusal, not an invented zero.
+export function motionSequence(frames,{band={},thresholds={},gapFrames=1}={}){
+  if(!Array.isArray(frames)||!frames.length)return {ok:false,reason:'frames_required'};
+  if(!Number.isInteger(gapFrames)||gapFrames<1)return {ok:false,reason:'invalid_gap_frames'};
+  const rows=[];let previousRoad=null,previousMap=null;
+  for(const [index,frame] of frames.entries()){
+    const road=frame?.semantic?roadRowProfile(frame.semantic,band):null;
+    const map=frame?.minimap?minimapProfile(frame.minimap,band):null;
+    const roadShift=road?.ok&&previousRoad?estimateShift(previousRoad,road):null;
+    const mapMove=map?.ok&&previousMap?minimapMotion(previousMap,map):null;
+    rows.push({index,file:frame?.file??null,sequence:frame?.sequence??null,
+      // gap_frames > 1 means the neighbours are sampled frames, so the shift
+      // covers several original frames and is reported as such.
+      gap_frames:index?gapFrames:null,
+      road_profile_ok:road?.ok===true,road_profile_reason:road?.ok===false?road.reason:null,
+      road_shift:roadShift,minimap_profile_ok:map?.ok===true,minimap_profile_reason:map?.ok===false?map.reason:null,
+      minimap_motion:mapMove,
+      source:index?classifyMotionSource({roadShift,minimapMotion:mapMove,thresholds}):{source:'first_frame',reason:'no_neighbour'}});
+    if(road?.ok)previousRoad=road;
+    if(map?.ok)previousMap=map;
+  }
+  const shifts=rows.filter(r=>r.road_shift?.ok&&r.road_shift.confident).map(r=>r.road_shift.shift_pixels);
+  const sources={};
+  for(const r of rows){const s=r.source.source;sources[s]=(sources[s]??0)+1;}
+  return {ok:true,rows,frames:rows.length,gap_frames:gapFrames,
+    shift_pixels:shifts.length?{count:shifts.length,min:Math.min(...shifts),max:Math.max(...shifts)}:null,
+    sources,scope:EGO_SCOPE,
+    note:'Order is recording order and the gap is reported. A missing neighbour is a refusal, not zero motion.'};
+}
+
+// Latency has three different meanings and they must never be averaged into one
+// number: the age of a stored frame when it was written, the time an offline
+// process spends on inference, and the live capture-to-decision loop that only
+// exists while the game runs. A live number cannot be produced offline.
+export function latencyBreakdown({recordedAgeMs=[],offlineAnalysisMs=[],liveLoopMs=[]}={}){
+  const pct=list=>{
+    const v=list.filter(num).slice().sort((a,b)=>a-b);
+    if(!v.length)return null;
+    const at=q=>v[Math.min(v.length-1,Math.max(0,Math.round(q*(v.length-1))))];
+    return {count:v.length,p50:at(.5),p95:at(.95),max:v.at(-1)};
+  };
+  return {recorded_age_ms:pct(recordedAgeMs),offline_analysis_ms:pct(offlineAnalysisMs),live_loop_ms:pct(liveLoopMs),
+    meanings:{recorded_age_ms:'Stored frame age at write time, from the recording manifest.',
+      offline_analysis_ms:'Wall time this offline process spent on the frame; not a live cycle.',
+      live_loop_ms:'Capture-to-decision time with the game running; cannot be produced offline.'},
+    scope:'Three separate measurements, never summed or compared as one latency.'};
+}
+
+// What a physical-unit claim needs before a degree or a metre may be printed.
+// Supplied by the caller as measured facts; nothing here estimates them.
+export function scaleReadiness({distanceScale=null,angleCalibration=null}={}){
+  const distanceOk=distanceScale?.method==='known_distance'&&num(distanceScale?.pixels_per_metre)
+    &&distanceScale.pixels_per_metre>0&&distanceScale?.independent_checks>=2;
+  const angleOk=angleCalibration?.method==='independent_heading'&&num(angleCalibration?.degrees_per_pixel)
+    &&angleCalibration?.independent_checks>=2;
+  return {distance_ready:distanceOk,angle_ready:angleOk,degrees_emitted:false,metres_emitted:false,
+    blockers:[...(!distanceOk?['no_independent_distance_scale']:[]),...(!angleOk?['no_independent_angle_calibration']:[])],
+    note:'A camera pan left and right does not create a numeric calibration: the angle the camera actually turned must be known independently.',
+    scope:'Gate for physical units. Output stays in pixels and image fractions until both checks pass.'};
+}

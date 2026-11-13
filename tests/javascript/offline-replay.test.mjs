@@ -117,3 +117,54 @@ test('replay --skill really runs decisions through the CLI without loading real 
  const result=JSON.parse(await readFile(out,'utf8'));assert.ok(Object.keys(result.summary.decision_states).length>0);assert.equal(result.summary.frames_processed,6);assert.equal(result.rows[0].decision.command.throttle,0);
  }finally{await rm(root,{recursive:true,force:true});}
 });
+
+// The minimap is the only independent signal that separates a camera turn from
+// the car moving, so replay must read it explicitly and never assume it.
+test('motion is measured between recording neighbours and the gap is reported',async()=>{
+ const {root,samples}=await recording(6);
+ try{
+  // The stored minimap is part of the recording; a missing file must never be
+  // replaced by an assumed zero movement.
+  for(const s of samples)await writeFile(path.join(root,s.minimap_file),'map');
+  const map=(shift)=>{const w=40,h=20,data=new Uint8Array(w*h);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){const xx=((x-shift)%w+w)%w;data[y*w+x]=xx>=12&&xx<18?200:20;}
+    return {width:w,height:h,data};};
+  const semantic=shift=>{const gw=40,gh=20,road=new Uint8Array(gw*gh);
+    for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){const xx=((x-shift)%gw+gw)%gw;if(xx>=14&&xx<26)road[y*gw+x]=1;}
+    return {gridWidth:gw,gridHeight:gh,road,width:1280,height:668};};
+  const seen=[];
+  const report=await replayObservations(root,{sampling:3,hudProfile:meta=>meta,
+    readerFactory:async()=>({read:async(bytes,time_ms)=>({time_ms,speed:{valid:true,kmh:3,time_ms},gear:{valid:true,value:'1'}}),close:async()=>{}}),
+    visionFactory:async()=>({analyze:async bytes=>{const i=seen.length;seen.push(i);return {road_fraction:.4,rows,vehicles:[],semantic:semantic(i),inference_ms:2};},session:{release:async()=>{}}}),
+    // The reader turns a stored minimap into the grayscale profile motion needs.
+    minimapReader:async()=>map(seen.length)});
+  // Sampling 3 of 6 keeps every ~1.7th frame; the report states the real gap so a
+  // shift is never presented as a consecutive-frame shift when it is not.
+  assert.equal(report.summary.frames_processed,6);
+  assert.equal(report.summary.frames_replayed,3);
+  assert.equal(report.summary.motion.gap_frames,3);
+  assert.equal(report.summary.motion.frames,6);
+  assert.equal(report.summary.motion.rows[0].source.reason,'no_neighbour');
+  assert.equal(report.summary.minimap_used,true);
+  // Offline analysis time and recorded age are reported separately.
+  assert.equal(report.summary.latency.offline_analysis_ms.count,3);
+  assert.equal(report.summary.latency.recorded_age_ms.count,3);
+  assert.equal(report.summary.latency.live_loop_ms,null);
+  assert.match(report.scope,/live capture-to-decision loop cannot be measured offline/);
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+
+test('without a minimap the motion source is never claimed as separated',async()=>{
+ const {root}=await recording(3);
+ try{
+  const semantic={gridWidth:40,gridHeight:20,road:new Uint8Array(800).fill(1),width:1280,height:668};
+  const report=await replayObservations(root,{sampling:3,hudProfile:meta=>meta,
+    readerFactory:async()=>({read:async(bytes,time_ms)=>({time_ms,speed:{valid:true,kmh:3,time_ms},gear:{valid:true,value:'1'}}),close:async()=>{}}),
+    visionFactory:async()=>({analyze:async()=>({road_fraction:.5,rows,vehicles:[],semantic,inference_ms:1}),session:{release:async()=>{}}})});
+  assert.equal(report.summary.minimap_used,false);
+  const sources=report.summary.motion.sources;
+  assert.equal(sources.camera_only_rotation??0,0);
+  assert.equal(sources.vehicle_motion??0,0);
+  assert.equal(report.summary.driving_verified,false);
+ }finally{await rm(root,{recursive:true,force:true});}
+});

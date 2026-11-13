@@ -84,3 +84,41 @@ test('Windows-compatible CLI main detection executes usage checks before model l
   assert.notEqual(result.status,0,name);assert.match(result.stderr,/Usage:/,name);
  }
 });
+
+// The audit must show inter-frame motion next to the corridor shape. Without
+// neighbours the shift is refused, and without a recorded minimap the source is
+// never claimed as separated.
+test('the audit reports motion separately from corridor drift and states the gap',async()=>{
+ const {dir,file}=await labelfile([
+  {file:'000000.jpg',points:[{x:.5,y:.5,expected:'hazard',kind:'pole'}]},
+  {file:'000004.jpg',points:[{x:.5,y:.5,expected:'hazard',kind:'pole'}]}]);
+ try{
+  const report=await auditLabels({labelFile:file,resolveImage:async f=>Buffer.from(f),analyze:async()=>corridorFrame,gapFrames:4});
+  assert.equal(report.summary.scored,2);
+  // Corridor shape stays a per-frame feature; a short corridor refuses it and is
+  // reported as null, never as zero drift.
+  assert.ok(report.drift_summary===null||report.drift_summary.units==='image fractions');
+  // ...while motion is a sequence measurement with its own gap.
+  assert.equal(report.motion_summary.frames,2);
+  assert.equal(report.motion_summary.gap_frames,4);
+  // Two identical masks give a confident zero shift, and that zero is reported
+  // without a minimap: the source stays unseparated instead of "car moved".
+  assert.equal(report.motion_summary.shift_pixels.count,1);
+  assert.equal(report.motion_summary.sources.stationary_without_minimap,1);
+  assert.match(report.motion_summary.note,/not a yaw/);
+  // Three clocks: offline analysis exists, a live loop cannot exist offline.
+  assert.equal(report.latency.offline_analysis_ms.count,2);
+  assert.equal(report.latency.live_loop_ms,null);
+  // percentiles() uses n, so the legacy field keeps its own shape.
+  assert.equal(report.latency_ms.n,2);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('one labelled frame has no neighbour, so no shift is invented',async()=>{
+ const {dir,file}=await labelfile([{file:'000000.jpg',points:[{x:.5,y:.5,expected:'hazard',kind:'pole'}]}]);
+ try{
+  const report=await auditLabels({labelFile:file,resolveImage:async f=>Buffer.from(f),analyze:async()=>corridorFrame});
+  assert.equal(report.motion_summary,null);
+  assert.equal(report.summary.scored,1);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
