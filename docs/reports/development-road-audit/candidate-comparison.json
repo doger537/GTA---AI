@@ -1,0 +1,1762 @@
+{
+  "base": "2d6de7a1030031568a1d15ead60de94cb274d6e9",
+  "role": "development",
+  "annotation_source": "Existing Codex visual labels, human_reviewed=false",
+  "criteria": "More than 3 valid corridors, false-free hazards <=2, then review newly accepted paths. No variant met the first criterion.",
+  "selected": {
+    "baseline": {
+      "input_height": 512,
+      "valid_corridors": 3,
+      "summary": {
+        "frames": 40,
+        "scored": 40,
+        "refused": 0,
+        "points": 109,
+        "hazard_points": 69,
+        "road_points": 40,
+        "false_free_total": 2,
+        "false_free_on_path": 0,
+        "path_hazard_coverage": {
+          "inside": 0,
+          "outside": 6,
+          "unavailable": 63,
+          "false_free_fraction_inside": null
+        },
+        "missed_road": 10,
+        "verdict": "road_not_traversable",
+        "by_kind": {
+          "vehicle": {
+            "total": 19,
+            "false_free": 0
+          },
+          "wall": {
+            "total": 9,
+            "false_free": 0
+          },
+          "pole": {
+            "total": 23,
+            "false_free": 0
+          },
+          "curb": {
+            "total": 11,
+            "false_free": 2
+          },
+          "pedestrian": {
+            "total": 5,
+            "false_free": 0
+          },
+          "sign": {
+            "total": 2,
+            "false_free": 0
+          }
+        },
+        "limitations": [
+          "Development frames only; these images were used while tuning the models.",
+          "A point audit is not a pixel or polygon IoU and cannot prove the whole corridor is safe.",
+          "Absence of a false-free point does not mean the corridor is drivable."
+        ]
+      }
+    },
+    "aspect512": {
+      "input_height": 512,
+      "valid_corridors": 3,
+      "summary": {
+        "frames": 40,
+        "scored": 40,
+        "refused": 0,
+        "points": 109,
+        "hazard_points": 69,
+        "road_points": 40,
+        "false_free_total": 1,
+        "false_free_on_path": 0,
+        "path_hazard_coverage": {
+          "inside": 0,
+          "outside": 6,
+          "unavailable": 63,
+          "false_free_fraction_inside": null
+        },
+        "missed_road": 10,
+        "verdict": "road_not_traversable",
+        "by_kind": {
+          "vehicle": {
+            "total": 19,
+            "false_free": 0
+          },
+          "wall": {
+            "total": 9,
+            "false_free": 0
+          },
+          "pole": {
+            "total": 23,
+            "false_free": 0
+          },
+          "curb": {
+            "total": 11,
+            "false_free": 1
+          },
+          "pedestrian": {
+            "total": 5,
+            "false_free": 0
+          },
+          "sign": {
+            "total": 2,
+            "false_free": 0
+          }
+        },
+        "limitations": [
+          "Development frames only; these images were used while tuning the models.",
+          "A point audit is not a pixel or polygon IoU and cannot prove the whole corridor is safe.",
+          "Absence of a false-free point does not mean the corridor is drivable."
+        ]
+      }
+    },
+    "aspect1024": {
+      "input_height": 1024,
+      "valid_corridors": 3,
+      "summary": {
+        "frames": 40,
+        "scored": 40,
+        "refused": 0,
+        "points": 109,
+        "hazard_points": 69,
+        "road_points": 40,
+        "false_free_total": 1,
+        "false_free_on_path": 0,
+        "path_hazard_coverage": {
+          "inside": 0,
+          "outside": 6,
+          "unavailable": 63,
+          "false_free_fraction_inside": null
+        },
+        "missed_road": 20,
+        "verdict": "road_not_traversable",
+        "by_kind": {
+          "vehicle": {
+            "total": 19,
+            "false_free": 0
+          },
+          "wall": {
+            "total": 9,
+            "false_free": 0
+          },
+          "pole": {
+            "total": 23,
+            "false_free": 0
+          },
+          "curb": {
+            "total": 11,
+            "false_free": 1
+          },
+          "pedestrian": {
+            "total": 5,
+            "false_free": 0
+          },
+          "sign": {
+            "total": 2,
+            "false_free": 0
+          }
+        },
+        "limitations": [
+          "Development frames only; these images were used while tuning the models.",
+          "A point audit is not a pixel or polygon IoU and cannot prove the whole corridor is safe.",
+          "Absence of a false-free point does not mean the corridor is drivable."
+        ]
+      }
+    },
+    "gta": {
+      "input_height": 640,
+      "valid_corridors": 3,
+      "summary": {
+        "valid_corridors": 3,
+        "frames": 40,
+        "scored": 40,
+        "refused": 0,
+        "points": 109,
+        "hazard_points": 69,
+        "road_points": 40,
+        "false_free_total": 1,
+        "false_free_on_path": 0,
+        "path_hazard_coverage": {
+          "inside": 1,
+          "outside": 5,
+          "unavailable": 63,
+          "false_free_fraction_inside": 0
+        },
+        "missed_road": 10,
+        "verdict": "road_not_traversable",
+        "by_kind": {
+          "vehicle": {
+            "total": 19,
+            "false_free": 0
+          },
+          "wall": {
+            "total": 9,
+            "false_free": 0
+          },
+          "pole": {
+            "total": 23,
+            "false_free": 0
+          },
+          "curb": {
+            "total": 11,
+            "false_free": 1
+          },
+          "pedestrian": {
+            "total": 5,
+            "false_free": 0
+          },
+          "sign": {
+            "total": 2,
+            "false_free": 0
+          }
+        },
+        "limitations": [
+          "Development frames only; these images were used while tuning the models.",
+          "A point audit is not a pixel or polygon IoU and cannot prove the whole corridor is safe.",
+          "Absence of a false-free point does not mean the corridor is drivable."
+        ]
+      }
+    },
+    "gta_semantic_guards": {
+      "input_height": 640,
+      "valid_corridors": 1,
+      "summary": {
+        "valid_corridors": 1,
+        "frames": 40,
+        "scored": 40,
+        "refused": 0,
+        "points": 109,
+        "hazard_points": 69,
+        "road_points": 40,
+        "false_free_total": 1,
+        "false_free_on_path": 0,
+        "path_hazard_coverage": {
+          "inside": 0,
+          "outside": 2,
+          "unavailable": 67,
+          "false_free_fraction_inside": null
+        },
+        "missed_road": 12,
+        "verdict": "road_not_traversable",
+        "by_kind": {
+          "vehicle": {
+            "total": 19,
+            "false_free": 0
+          },
+          "wall": {
+            "total": 9,
+            "false_free": 0
+          },
+          "pole": {
+            "total": 23,
+            "false_free": 0
+          },
+          "curb": {
+            "total": 11,
+            "false_free": 1
+          },
+          "pedestrian": {
+            "total": 5,
+            "false_free": 0
+          },
+          "sign": {
+            "total": 2,
+            "false_free": 0
+          }
+        },
+        "limitations": [
+          "Development frames only; these images were used while tuning the models.",
+          "A point audit is not a pixel or polygon IoU and cannot prove the whole corridor is safe.",
+          "Absence of a false-free point does not mean the corridor is drivable."
+        ]
+      }
+    }
+  },
+  "rows": [
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000000.jpg",
+      "sha256": "851a4ec308af4eca80d78dc6901736628211d6efad21c705d78c92ab3ae50314",
+      "variants": {
+        "baseline": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000046.jpg",
+      "sha256": "d452bdf86f521e9dfa471f6f0267e40a263c0e73f7e73a8b6a98cb2cd25939ac",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000091.jpg",
+      "sha256": "6d94977f27c18bededb6f56008714905dbbdf2755f3ccba090bb0381f60a125e",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000137.jpg",
+      "sha256": "0f4f5f7573070d3e56595a79dc822a5e73d696aad680b5811f8adeef9254134e",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000182.jpg",
+      "sha256": "1b1c1b1aaeaf82c6f02591e678644418caffff517caa2ae8b2ee6e4f9b248f1f",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000228.jpg",
+      "sha256": "5b02ed2d167a30b3ab8a5b83cd32cf605281e2cf0feaa19b4d0ca34c88e46c1c",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000273.jpg",
+      "sha256": "1252f60dd363755dff88591e9ccf451d3584f6799a4ef1bea9ee55042c24d71b",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000319.jpg",
+      "sha256": "3ba73c862b660f1709eac937633413ff8ceb2b6d9ea8da0dfca07e4af90be866",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000365.jpg",
+      "sha256": "fd3e3d7910c6c08683a3303e701fb6b54eaaf05498244c50c58025f33e4c4637",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000410.jpg",
+      "sha256": "0ea9c673e32c738e51479481b7587e83ba483f29c592dd3155cdb1aa08c51eca",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000456.jpg",
+      "sha256": "00690eddcc1314d530c8bb8106e8a3faed23f02f6448127a930f49dd4a5d55bc",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000501.jpg",
+      "sha256": "53237b918ff7b8562c70607d85d20d755ef0530c67dfdd9d6eeccf9c5f286d5a",
+      "variants": {
+        "baseline": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000547.jpg",
+      "sha256": "336f42d2af10e7134d02d1640ec60c320e8156fff4f152b1394b3d2288a068f6",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000593.jpg",
+      "sha256": "f80cd290b944bf83bbc5b1cc05ee2b4739b17a6bf102254613cce83ecba0b302",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000638.jpg",
+      "sha256": "9db16924cfe8a20beb0dce51493a2754e59183330dbfd380df16214ec34ce226",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 1,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000684.jpg",
+      "sha256": "49794f95a441f1d21722aa22e175b4a40f17829f1fca3a1185478af0ff809fba",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000729.jpg",
+      "sha256": "7a823d735a26619798bd9e72f94c49592dc4a383b86154087ee1a9a401a56eff",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000775.jpg",
+      "sha256": "ed3fc194ce7cd19144b50e105a2fcc06a818bb1ee9436b7ab595690ec4f23300",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000820.jpg",
+      "sha256": "bfaff85a905395644aa0c395fc64d8b7d1b4367ad4a886e7dfa80f74106a2631",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000866.jpg",
+      "sha256": "1915d295909c75038a67799a16fcb58d9649fd183067611515903351eec28b58",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000000.jpg",
+      "sha256": "2e8ba4061c3ba25f8f9ffd57c8dd64cfd5302c9ed856ac6b89b095def350da18",
+      "variants": {
+        "baseline": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": true,
+          "reason": null,
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000022.jpg",
+      "sha256": "61239b2df780a4cf959c552204d6c12f2dfc87a41d411e9ee7158efbae156514",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000044.jpg",
+      "sha256": "0f9bddde05fa88951540162bfcde2c1e05658cd131d043faab916078de8059ef",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000065.jpg",
+      "sha256": "3cab6a193eef129b4395632cbc091fac870be0cf9e901f4b4c09e8f7bc078f19",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000087.jpg",
+      "sha256": "89ebade1125c979c4b0f672cb12670b4f02852e7dbd38e236dd7f7921d6f9a96",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000109.jpg",
+      "sha256": "cbac350543b0a9861ce32a533ae3fc59fbf7828018807435076463085eedbd09",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000131.jpg",
+      "sha256": "a0184b2c9c46de67bfaa1b33792c1912a0b3f3b19c11d4c85c44445eab3b8cc6",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000153.jpg",
+      "sha256": "56d0cb07f3d30e7e4cd876aa9efcdac9eab7a4532e2b93dbea75ccd1c5fb1835",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000174.jpg",
+      "sha256": "5281d93d3528e3eb5dad609a784b9bdfb005a73ca8437c5ffc6b07623a181409",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000196.jpg",
+      "sha256": "234e92cdda8a2545588cc4095c4f90bbf9418657abc1005c5f5fef8da86563b4",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000218.jpg",
+      "sha256": "cb760118d35c8bca657330b7e329268210f302fecb0faac2c45c734232efa84e",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000240.jpg",
+      "sha256": "167f8d8be2deb5359dd40badfbaa483fb145da74d2046d04b354e3cb3c8207b3",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000261.jpg",
+      "sha256": "9a9abd6e53c53e90248275e01babf5c7fc702f35c344e5febc6980b84746633b",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "projected_heading_not_on_road",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000283.jpg",
+      "sha256": "827cdf098c8689e27cdaccff533a494fd73e1f8e677550d7b596f6a0f269435c",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000305.jpg",
+      "sha256": "edf34995a2e35c2e815df330fbaed0f6b910c950f6696096be622211fe234dc7",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000327.jpg",
+      "sha256": "60dd326cbc4adb6e96798b52fe62402a2a6d6c7e3198396f231b322286793426",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000349.jpg",
+      "sha256": "698c30d1c99685a4fd1f5608db25aaf490932ae4a8ee93a99db5afacae4d248c",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 1,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 1,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 1,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 1,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 1,
+          "missed_road": 0
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000370.jpg",
+      "sha256": "8320f7236f0e78eb858a9a32324920d92e75270ed813f1deecd3598e97377ca9",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000392.jpg",
+      "sha256": "eb1e96b0af98cfb07ed5b581cf3ab5ebc55c683a8d410e57a66f094776125035",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 1
+        }
+      }
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000414.jpg",
+      "sha256": "ab8923bf9619b3632c71913f5b55a1b49c4afdf71c64f750562193829924fc99",
+      "variants": {
+        "baseline": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect512": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "aspect1024": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        },
+        "gta_semantic_guards": {
+          "valid": false,
+          "reason": "connected_road_too_short",
+          "false_free": 0,
+          "missed_road": 0
+        }
+      }
+    }
+  ],
+  "model_sha256": {
+    "segformer": "ffd5ceb33f7c7a969bc69d3ad7ab06017de15c42085e7ed10be8ed8d23b10fec",
+    "gta": "15a4d23a3a7a24b943f309c895ae72d8fc84b3db9be291c0795300c9a446cd75"
+  },
+  "outcome": "No promotion. Fixed minimum image span cannot be assigned a physical horizon without camera/metric evidence."
+}
