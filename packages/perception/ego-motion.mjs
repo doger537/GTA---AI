@@ -34,9 +34,8 @@ function scoreShift(a,b,shift){
   return {score:dot/Math.sqrt(aa*bb),overlap:overlap/n};
 }
 
-// Horizontal image shift between two consecutive profiles. Positive means the
-// scene moved right in the image, which in this rear view is a left camera turn;
-// the sign convention is reported but not converted to an angle.
+// Horizontal image shift between two profiles. Positive means the scene moved
+// right in the image; its physical cause and angle are deliberately not inferred.
 export function estimateShift(previous,current,{maxShiftPixels=null,minOverlap=0.6,minScore=0.5,minAmbiguity=0.05}={}){
   if(![minOverlap,minScore,minAmbiguity].every(num)||minOverlap<=0||minOverlap>1||minScore<0||minScore>1||minAmbiguity<0||minAmbiguity>2)return {ok:false,reason:'invalid_shift_thresholds'};
   if(!previous?.ok||!current?.ok)return {ok:false,reason:previous?.reason??current?.reason??'profiles_required'};
@@ -94,27 +93,27 @@ export function corridorDrift(corridor,{minPoints=3}={}){
     honest_units:'image fractions; no scale, no angle',scope:EGO_SCOPE};
 }
 
-// Separates "the camera turned while the car stood" from "the car moved".
-// minimap_motion must be supplied by the caller from a real minimap source; it is
-// never inferred here and never defaulted.
+// Image evidence supports hypotheses, not verified vehicle/camera motion: map
+// rotation, zoom and UI icons can change independently of the vehicle.
 export function classifyMotionSource({roadShift,minimapMotion,thresholds={}}={}){
   const t={road_pixels:4,minimap_fraction:0.01,...thresholds};
-  if(!num(t.road_pixels)||!num(t.minimap_fraction)||t.road_pixels<0||t.minimap_fraction<0)return {source:'unknown',reason:'invalid_motion_thresholds',scope:EGO_SCOPE};
-  if(roadShift?.ok===true&&(!num(roadShift.shift_pixels))||minimapMotion?.ok===true&&(!num(minimapMotion.fraction)||minimapMotion.fraction<0))return {source:'unknown',reason:'invalid_motion_signal',scope:EGO_SCOPE};
+  if(!num(t.road_pixels)||!num(t.minimap_fraction)||t.road_pixels<0||t.minimap_fraction<0)return {source:'unknown',reason:'invalid_motion_thresholds',verified:false,scope:EGO_SCOPE};
+  if(roadShift?.ok===true&&(!num(roadShift.shift_pixels))||minimapMotion?.ok===true&&(!num(minimapMotion.fraction)||minimapMotion.fraction<0))return {source:'unknown',reason:'invalid_motion_signal',verified:false,scope:EGO_SCOPE};
   const roadOk=roadShift?.ok===true&&roadShift.confident===true;
-  const mapOk=minimapMotion?.ok===true&&num(minimapMotion.fraction);
+  const mapOk=minimapMotion?.ok===true&&minimapMotion.confident===true&&num(minimapMotion.fraction);
   const roadSignificant=roadOk&&Math.abs(roadShift.shift_pixels)>t.road_pixels;
   const mapSignificant=mapOk&&Math.abs(minimapMotion.fraction)>t.minimap_fraction;
-  const base={road_ok:roadOk,minimap_ok:mapOk,thresholds:t,scope:EGO_SCOPE,
-    note:'A camera turn and a vehicle turn look identical in a monocular image; only an independent minimap signal separates them.'};
+  const base={road_ok:roadOk,minimap_ok:mapOk,thresholds:t,scope:EGO_SCOPE,verified:false,
+    note:'A camera turn and a vehicle turn look identical in a monocular image. Minimap displacement is additional image evidence, affected by map rotation, zoom and icons; no physical source is verified.'};
   if(!roadOk&&!mapOk)return {...base,source:'unknown',reason:'no_motion_signal'};
-  if(!mapOk)return {...base,source:roadSignificant?'unseparated_camera_or_vehicle':'stationary_without_minimap',
+  if(!mapOk)return {...base,source:roadSignificant?'unseparated_camera_or_vehicle':'no_road_shift_without_minimap',
     reason:roadSignificant?'minimap_signal_missing':'minimap_signal_missing_stationary'};
-  if(!roadOk)return {...base,source:mapSignificant?'vehicle_motion_without_road':'stationary_without_road',
+  if(!roadOk)return {...base,source:mapSignificant?'map_motion_without_road':'unknown',
     reason:mapSignificant?'road_signal_missing':'road_signal_missing_stationary'};
-  if(!roadSignificant&&!mapSignificant)return {...base,source:'stationary',reason:'below_thresholds'};
-  if(roadSignificant&&!mapSignificant)return {...base,source:'camera_only_rotation',reason:'road_shift_without_vehicle_motion'};
-  if(!roadSignificant&&mapSignificant)return {...base,source:'vehicle_motion',reason:'vehicle_motion_without_road_shift'};
+  if(!mapSignificant&&minimapMotion.axes_complete!==true)return {...base,source:'unknown',reason:'minimap_axis_unobserved'};
+  if(!roadSignificant&&!mapSignificant)return {...base,source:'no_observed_image_motion',reason:'below_thresholds'};
+  if(roadSignificant&&!mapSignificant)return {...base,source:'camera_motion_candidate',reason:'road_shift_without_observed_map_shift'};
+  if(!roadSignificant&&mapSignificant)return {...base,source:'vehicle_motion_candidate',reason:'map_shift_without_road_shift'};
   return {...base,source:'ambiguous',reason:'both_signals_moved'};
 }
 
@@ -124,60 +123,96 @@ export function classifyMotionSource({roadShift,minimapMotion,thresholds={}}={})
 // uncertainty, never reused as "the car turned".
 export function minimapProfile(image,{top=0.3,bottom=0.7}={}){
   const w=image?.width,h=image?.height,data=image?.data;
-  if(!Number.isInteger(w)||!Number.isInteger(h)||!data||data.length<w*h)return {ok:false,reason:'invalid_minimap_image'};
+  if(!Number.isSafeInteger(w)||!Number.isSafeInteger(h)||w<8||h<8||!data||data.length!==w*h)return {ok:false,reason:'invalid_minimap_image'};
   if(!num(top)||!num(bottom)||top<0||bottom>1||bottom-top<0.05)return {ok:false,reason:'invalid_band'};
   const y0=Math.max(0,Math.floor(top*h)),y1=Math.min(h-1,Math.ceil(bottom*h));
   // Edge energy per column: map outlines and road edges move, flat map fill does not.
-  const profile=new Float64Array(w);
+  const profile=new Float64Array(w),vertical=new Float64Array(h);
   for(let y=y0;y<=y1;y++)for(let x=1;x<w-1;x++){
     const i=y*w+x;
     profile[x]+=Math.abs(data[i+1]-data[i-1]);
   }
-  let energy=0;for(const v of profile)energy+=v;
+  // A horizontal profile cannot see vertical movement. Measure the second axis
+  // separately; an unobservable axis must never establish a stationary map.
+  const x0=Math.floor(top*w),x1=Math.min(w-1,Math.ceil(bottom*w));
+  for(let y=1;y<h-1;y++)for(let x=x0;x<=x1;x++)vertical[y]+=Math.abs(data[(y+1)*w+x]-data[(y-1)*w+x]);
+  let energy=0;for(const v of profile)energy+=v;for(const v of vertical)energy+=v;
   if(energy<=0)return {ok:false,reason:'no_minimap_structure'};
   for(let x=0;x<w;x++)profile[x]/=y1-y0+1;
-  return {ok:true,profile,width:w,band:{top:y0/h,bottom:y1/h},rows:y1-y0+1};
+  for(let y=0;y<h;y++)vertical[y]/=x1-x0+1;
+  return {ok:true,profile,width:w,height:h,band:{top:y0/h,bottom:y1/h},rows:y1-y0+1,
+    vertical:{ok:true,profile:vertical,width:h}};
 }
 
 // Map-space displacement, not metres: no map scale is measured anywhere in this
 // project, so a metric claim is impossible and deliberately absent.
 export function minimapMotion(previous,current,options={}){
-  const shift=estimateShift(previous,current,options);
-  if(!shift.ok)return {...shift,ok:false,space:'map_pixels'};
-  return {...shift,ok:true,space:'map_pixels',fraction:shift.shift_pixels/previous.width,
-    honest_units:'fraction of the minimap width; map scale unknown, not metres'};
+  if(previous?.width!==current?.width||previous?.height!==current?.height)return {ok:false,reason:'minimap_geometry_changed',space:'map_pixels'};
+  const x=estimateShift(previous,current,options),y=estimateShift(previous?.vertical,current?.vertical,options);
+  const xOk=x.ok&&x.confident,yOk=y.ok&&y.confident;
+  const fraction=xOk||yOk?Math.hypot(xOk?x.shift_fraction:0,yOk?y.shift_fraction:0):null;
+  return {ok:Boolean(xOk||yOk),confident:Boolean(xOk||yOk),axes_complete:Boolean(xOk&&yOk),axes:{x,y},
+    reason:xOk||yOk?null:'no_confident_minimap_axis',space:'map_pixels',fraction,
+    signed_fraction:{x:xOk?x.shift_fraction:null,y:yOk?y.shift_fraction:null},
+    honest_units:'fraction of each minimap dimension; lower bound when an axis is unobserved; map scale unknown, not metres'};
 }
 
 // Sequential motion over frames in recording order. Keeping it here makes the
 // inter-frame shift part of the analysis instead of a separate experiment: a
 // frame without a usable neighbour gets an explicit refusal, not an invented zero.
-export function motionSequence(frames,{band={},thresholds={},gapFrames=1}={}){
-  if(!Array.isArray(frames)||!frames.length)return {ok:false,reason:'frames_required'};
-  if(!Number.isInteger(gapFrames)||gapFrames<1)return {ok:false,reason:'invalid_gap_frames'};
-  const rows=[];let previousRoad=null,previousMap=null;
-  for(const [index,frame] of frames.entries()){
-    const road=frame?.semantic?roadRowProfile(frame.semantic,band):null;
-    const map=frame?.minimap?minimapProfile(frame.minimap,band):null;
-    const roadShift=road?.ok&&previousRoad?estimateShift(previousRoad,road):null;
-    const mapMove=map?.ok&&previousMap?minimapMotion(previousMap,map):null;
-    rows.push({index,file:frame?.file??null,sequence:frame?.sequence??null,
-      // gap_frames > 1 means the neighbours are sampled frames, so the shift
-      // covers several original frames and is reported as such.
-      gap_frames:index?gapFrames:null,
-      road_profile_ok:road?.ok===true,road_profile_reason:road?.ok===false?road.reason:null,
-      road_shift:roadShift,minimap_profile_ok:map?.ok===true,minimap_profile_reason:map?.ok===false?map.reason:null,
-      minimap_motion:mapMove,
-      source:index?classifyMotionSource({roadShift,minimapMotion:mapMove,thresholds}):{source:'first_frame',reason:'no_neighbour'}});
-    if(road?.ok)previousRoad=road;
-    if(map?.ok)previousMap=map;
+export class MotionSequence {
+  constructor({band={},thresholds={},gapFrames=null}={}){
+    if(gapFrames!==null&&(!Number.isSafeInteger(gapFrames)||gapFrames<1))throw Error('invalid_gap_frames');
+    this.band=band;this.thresholds=thresholds;this.gapFrames=gapFrames;this.rows=[];this.previous=null;
   }
-  const shifts=rows.filter(r=>r.road_shift?.ok&&r.road_shift.confident).map(r=>r.road_shift.shift_pixels);
-  const sources={};
-  for(const r of rows){const s=r.source.source;sources[s]=(sources[s]??0)+1;}
-  return {ok:true,rows,frames:rows.length,gap_frames:gapFrames,
+  update(frame){
+    const index=this.rows.length,previous=this.previous;
+    const road=roadRowProfile(frame?.semantic,this.band),map=frame?.minimap?minimapProfile(frame.minimap):{ok:false,reason:frame?.minimap_reason??'minimap_missing'};
+    const hasIndex=Number.isSafeInteger(frame?.source_index)&&frame.source_index>=0;
+    const indexed=hasIndex&&previous?.source_index!==null;
+    const gap=previous?(indexed?frame.source_index-previous.source_index:this.gapFrames):null;
+    let reason=null;
+    if(previous){
+      if(indexed&&gap<=0)reason='non_increasing_source_index';
+      if(frame?.generation!=null&&previous.generation!=null&&frame.generation!==previous.generation)reason='generation_changed';
+      if(num(frame?.capture_start_ms)&&num(previous.capture_start_ms)&&frame.capture_start_ms<=previous.capture_start_ms)reason='non_increasing_capture_time';
+      if(Number.isSafeInteger(frame?.sequence)&&Number.isSafeInteger(previous.sequence)&&frame.sequence<=previous.sequence)reason='non_increasing_sequence';
+    }
+    const roadShift=previous&&!reason?estimateShift(previous.road,road):null;
+    const mapMove=previous&&!reason?minimapMotion(previous.map,map):null;
+    const row={index,file:frame?.file??null,sequence:frame?.sequence??null,
+      gap_frames:reason?null:gap,gap_basis:previous?(indexed?'source_index':this.gapFrames===null?'unknown':'caller_declared'):null,
+      sequence_gap:previous&&Number.isSafeInteger(frame?.sequence)&&Number.isSafeInteger(previous.sequence)?frame.sequence-previous.sequence:null,
+      road_profile_ok:road.ok,road_profile_reason:road.reason??null,road_shift:roadShift,
+      minimap_profile_ok:map.ok,minimap_profile_reason:map.reason??null,minimap_motion:mapMove,
+      source:!previous?{source:'first_frame',reason:'no_neighbour',verified:false}:reason?{source:'unknown',reason,verified:false}:classifyMotionSource({roadShift,minimapMotion:mapMove,thresholds:this.thresholds})};
+    this.rows.push(row);
+    // Retain only the immediate neighbour's profiles, never full semantic masks.
+    // Invalid/missing signals also replace the previous ones, breaking that pair.
+    this.previous={road,map,source_index:hasIndex?frame.source_index:null,generation:frame?.generation,
+      capture_start_ms:frame?.capture_start_ms,sequence:frame?.sequence};
+    return row;
+  }
+  summary(){
+    const rows=this.rows;
+    if(!rows.length)return {ok:false,reason:'frames_required'};
+    const shifts=rows.filter(r=>r.road_shift?.ok&&r.road_shift.confident).map(r=>r.road_shift.shift_pixels);
+    const sources={},reasons={};
+    for(const r of rows){const s=r.source.source;sources[s]=(sources[s]??0)+1;if(r.source.reason)reasons[r.source.reason]=(reasons[r.source.reason]??0)+1;}
+    const gaps=rows.slice(1).map(r=>r.gap_frames),known=gaps.filter(num);
+    return {ok:true,rows,frames:rows.length,gap_frames:gaps.length&&known.length===gaps.length&&known.every(v=>v===known[0])?known[0]:null,
+    gap_range:known.length?{min:Math.min(...known),max:Math.max(...known),unknown:gaps.length-known.length}:null,
     shift_pixels:shifts.length?{count:shifts.length,min:Math.min(...shifts),max:Math.max(...shifts)}:null,
-    sources,scope:EGO_SCOPE,
-    note:'Order is recording order and the gap is reported. A missing neighbour is a refusal, not zero motion.'};
+    sources,reasons,verified:false,scope:EGO_SCOPE,
+    note:'Order is input order; source-index gaps are reported when known. A missing neighbour is a refusal, not zero motion. Source labels are unverified image hypotheses.'};
+  }
+}
+export function motionSequence(frames,options={}){
+  if(!Array.isArray(frames)||!frames.length)return {ok:false,reason:'frames_required'};
+  if(options.gapFrames!=null&&(!Number.isSafeInteger(options.gapFrames)||options.gapFrames<1))return {ok:false,reason:'invalid_gap_frames'};
+  const sequence=new MotionSequence(options);
+  for(const frame of frames)sequence.update(frame);
+  return sequence.summary();
 }
 
 // Latency has three different meanings and they must never be averaged into one
@@ -186,27 +221,28 @@ export function motionSequence(frames,{band={},thresholds={},gapFrames=1}={}){
 // exists while the game runs. A live number cannot be produced offline.
 export function latencyBreakdown({recordedAgeMs=[],offlineAnalysisMs=[],liveLoopMs=[]}={}){
   const pct=list=>{
-    const v=list.filter(num).slice().sort((a,b)=>a-b);
+    const v=list.filter(x=>num(x)&&x>=0).slice().sort((a,b)=>a-b);
     if(!v.length)return null;
-    const at=q=>v[Math.min(v.length-1,Math.max(0,Math.round(q*(v.length-1))))];
+    const at=q=>v[Math.max(0,Math.ceil(q*v.length)-1)];
     return {count:v.length,p50:at(.5),p95:at(.95),max:v.at(-1)};
   };
   return {recorded_age_ms:pct(recordedAgeMs),offline_analysis_ms:pct(offlineAnalysisMs),live_loop_ms:pct(liveLoopMs),
-    meanings:{recorded_age_ms:'Stored frame age at write time, from the recording manifest.',
-      offline_analysis_ms:'Wall time this offline process spent on the frame; not a live cycle.',
+    meanings:{recorded_age_ms:'Recorded receipt age from the manifest; not the current age or a live loop.',
+      offline_analysis_ms:'Offline wall time for input reads, OCR/vision, corridor and motion analysis; excludes report rendering/writing and live actuation.',
       live_loop_ms:'Capture-to-decision time with the game running; cannot be produced offline.'},
     scope:'Three separate measurements, never summed or compared as one latency.'};
 }
 
-// What a physical-unit claim needs before a degree or a metre may be printed.
-// Supplied by the caller as measured facts; nothing here estimates them.
+// Structural checks on caller declarations. Counts do not prove independent
+// measurements; this helper cannot verify or authorize physical-unit claims.
 export function scaleReadiness({distanceScale=null,angleCalibration=null}={}){
   const distanceOk=distanceScale?.method==='known_distance'&&num(distanceScale?.pixels_per_metre)
-    &&distanceScale.pixels_per_metre>0&&distanceScale?.independent_checks>=2;
+    &&distanceScale.pixels_per_metre>0&&Number.isSafeInteger(distanceScale?.independent_checks)&&distanceScale.independent_checks>=2;
   const angleOk=angleCalibration?.method==='independent_heading'&&num(angleCalibration?.degrees_per_pixel)
-    &&angleCalibration?.independent_checks>=2;
+    &&angleCalibration.degrees_per_pixel>0&&Number.isSafeInteger(angleCalibration?.independent_checks)&&angleCalibration.independent_checks>=2;
   return {distance_ready:distanceOk,angle_ready:angleOk,degrees_emitted:false,metres_emitted:false,
     blockers:[...(!distanceOk?['no_independent_distance_scale']:[]),...(!angleOk?['no_independent_angle_calibration']:[])],
     note:'A camera pan left and right does not create a numeric calibration: the angle the camera actually turned must be known independently.',
-    scope:'Gate for physical units. Output stays in pixels and image fractions until both checks pass.'};
+    verification:'caller_declarations_only',physical_units_allowed:false,
+    scope:'Structural readiness check only, not verified calibration evidence or drive authorization. No physical units are emitted.'};
 }

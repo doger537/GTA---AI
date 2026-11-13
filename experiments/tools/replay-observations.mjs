@@ -7,6 +7,7 @@ import {replayObservations} from '../../packages/protocols/offline-replay.mjs';
 import {VehicleStateReader} from '../../packages/perception/vehicle-state.mjs';
 import {hudProfile} from '../../packages/perception/hud-profile.mjs';
 import {Perception} from '../../packages/perception/perception.mjs';
+import {decodeMinimap} from '../../packages/perception/recorded-minimap.mjs';
 
 const args=process.argv.slice(2),arg=(key,fallback)=>args.find(a=>a.startsWith('--'+key+'='))?.split('=').slice(1).join('=')??fallback;
 const root=args.find(a=>!a.startsWith('--'));
@@ -20,7 +21,7 @@ const out=arg('out',null)??resolve(root,'replay-report.json');
 const cameraProfile=arg('camera','rear');
 if(!['rear','hood'].includes(cameraProfile))throw Error('camera must be rear|hood (operator-declared, not verified)');
 const report=await replayObservations(root,{
-  sampling,intent,annotations,overlay,output:out,
+  sampling,intent,annotations,overlay,output:out,minimapReader:decodeMinimap,
   hudProfile:meta=>hudProfile(meta,{digitModel:args.includes('--digit-model')}),
   readerFactory:profile=>VehicleStateReader.create(profile),
   // Same loader as the live path: YOLOP vehicles + SegFormer road with occlusion.

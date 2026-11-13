@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';import path from 'node:path';
 import {auditLabels} from '../../experiments/tools/audit-false-free.mjs';
 import {emptyLabelFile} from '../../packages/perception/label-template.mjs';
 
-// Synthetic masks and a fake analyzer: the real models are not available here.
+// Synthetic masks and a fake analyzer: no claim about real GTA accuracy.
 const W=40,H=20;
 const sceneOf=points=>{
   const road=new Uint8Array(W*H);
@@ -93,7 +93,7 @@ test('the audit reports motion separately from corridor drift and states the gap
   {file:'000000.jpg',points:[{x:.5,y:.5,expected:'hazard',kind:'pole'}]},
   {file:'000004.jpg',points:[{x:.5,y:.5,expected:'hazard',kind:'pole'}]}]);
  try{
-  const report=await auditLabels({labelFile:file,resolveImage:async f=>Buffer.from(f),analyze:async()=>corridorFrame,gapFrames:4});
+  const report=await auditLabels({labelFile:file,resolveImage:async f=>Buffer.from(f),analyze:async()=>corridorFrame});
   assert.equal(report.summary.scored,2);
   // Corridor shape stays a per-frame feature; a short corridor refuses it and is
   // reported as null, never as zero drift.
@@ -104,13 +104,32 @@ test('the audit reports motion separately from corridor drift and states the gap
   // Two identical masks give a confident zero shift, and that zero is reported
   // without a minimap: the source stays unseparated instead of "car moved".
   assert.equal(report.motion_summary.shift_pixels.count,1);
-  assert.equal(report.motion_summary.sources.stationary_without_minimap,1);
+  assert.equal(report.motion_summary.sources.no_road_shift_without_minimap,1);
   assert.match(report.motion_summary.note,/not a yaw/);
   // Three clocks: offline analysis exists, a live loop cannot exist offline.
   assert.equal(report.latency.offline_analysis_ms.count,2);
   assert.equal(report.latency.live_loop_ms,null);
   // percentiles() uses n, so the legacy field keeps its own shape.
   assert.equal(report.latency_ms.n,2);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('audit decodes recorded PNGs, derives varying gaps and times the full analysis',async()=>{
+ const {dir,file}=await labelfile([0,4,9].map(i=>({file:String(i).padStart(6,'0')+'.jpg',points:[{x:.5,y:.5,expected:'hazard',kind:'pole'}]})));
+ try{
+  const {default:sharp}=await import('sharp');
+  const data=Buffer.alloc(40*20,20);for(let y=6;y<11;y++)for(let x=12;x<18;x++)data[y*40+x]=200;
+  const png=await sharp(data,{raw:{width:40,height:20,channels:1}}).png().toBuffer();
+  let now=0;
+  const report=await auditLabels({labelFile:file,clock:()=>now,resolveImage:()=>Buffer.from('x'),
+    resolveMinimap:async()=>{now+=7;return png;},analyze:async()=>{now+=3;return corridorFrame;}});
+  assert.equal(report.minimap_used,true);
+  assert.equal(report.frames[1].motion.minimap_motion.axes_complete,true);
+  assert.equal(report.motion_summary.gap_frames,null);
+  assert.deepEqual(report.frames.map(f=>f.motion.gap_frames),[null,4,5]);
+  assert.equal(report.motion_summary.verified,false);
+  assert.equal(report.latency.offline_analysis_ms.p50,10);
+  assert.equal(report.latency_ms.p50,5); // Legacy inference metric stays separate.
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 

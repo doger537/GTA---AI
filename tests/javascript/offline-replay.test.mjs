@@ -109,17 +109,22 @@ test('sampling only limits report rows, not temporal processing or manifest inte
  }finally{await rm(root,{recursive:true,force:true});}
 });
 test('replay --skill really runs decisions through the CLI without loading real models',async()=>{
- const {execFileSync}=await import('node:child_process'),{fileURLToPath,pathToFileURL}=await import('node:url'),{root}=await recording(6);
+ const {execFileSync}=await import('node:child_process'),{fileURLToPath,pathToFileURL}=await import('node:url'),{root,samples}=await recording(6);
  try{const loader=path.join(root,'preload.mjs'),out=path.join(root,'report.json');
+ const {default:sharp}=await import('sharp');
+ const data=Buffer.alloc(40*20,20);for(let y=6;y<11;y++)for(let x=12;x<18;x++)data[y*40+x]=200;
+ const png=await sharp(data,{raw:{width:40,height:20,channels:1}}).png().toBuffer();
+ for(const s of samples)await writeFile(path.join(root,s.minimap_file),png);
  const perception=new URL('../../packages/perception/perception.mjs',import.meta.url).href,reader=new URL('../../packages/perception/vehicle-state.mjs',import.meta.url).href;
  await writeFile(loader,'import {Perception} from '+JSON.stringify(perception)+';import {VehicleStateReader} from '+JSON.stringify(reader)+';Perception.load=async()=>({analyze:async()=>({road_fraction:.4,rows:[],semantic:null}),session:{release:async()=>{}}});VehicleStateReader.create=async()=>({read:async(b,t)=>({speed:{valid:true,kmh:3,time_ms:t},gear:{valid:true,value:"1"}}),close:async()=>{}});');
  execFileSync(process.execPath,['--import',pathToFileURL(loader).href,fileURLToPath(new URL('../../experiments/tools/replay-observations.mjs',import.meta.url)),root,'--frames=2','--skill','--no-overlay','--out='+out],{stdio:'pipe'});
  const result=JSON.parse(await readFile(out,'utf8'));assert.ok(Object.keys(result.summary.decision_states).length>0);assert.equal(result.summary.frames_processed,6);assert.equal(result.rows[0].decision.command.throttle,0);
+ assert.equal(result.summary.minimap_used,true);assert.equal(result.summary.motion.rows[1].minimap_motion.axes_complete,true);
+ assert.equal(result.summary.motion.gap_frames,1);assert.equal(result.summary.scale_readiness.physical_units_allowed,false);
  }finally{await rm(root,{recursive:true,force:true});}
 });
 
-// The minimap is the only independent signal that separates a camera turn from
-// the car moving, so replay must read it explicitly and never assume it.
+// Stored minimap pixels supply additional image evidence, never physical proof.
 test('motion is measured between recording neighbours and the gap is reported',async()=>{
  const {root,samples}=await recording(6);
  try{
@@ -138,17 +143,17 @@ test('motion is measured between recording neighbours and the gap is reported',a
     visionFactory:async()=>({analyze:async bytes=>{const i=seen.length;seen.push(i);return {road_fraction:.4,rows,vehicles:[],semantic:semantic(i),inference_ms:2};},session:{release:async()=>{}}}),
     // The reader turns a stored minimap into the grayscale profile motion needs.
     minimapReader:async()=>map(seen.length)});
-  // Sampling 3 of 6 keeps every ~1.7th frame; the report states the real gap so a
-  // shift is never presented as a consecutive-frame shift when it is not.
+  // All six frames feed motion; the three selected report rows cannot change
+  // the actual gap between the analysed recording neighbours.
   assert.equal(report.summary.frames_processed,6);
   assert.equal(report.summary.frames_replayed,3);
-  assert.equal(report.summary.motion.gap_frames,3);
+  assert.equal(report.summary.motion.gap_frames,1);
   assert.equal(report.summary.motion.frames,6);
   assert.equal(report.summary.motion.rows[0].source.reason,'no_neighbour');
   assert.equal(report.summary.minimap_used,true);
   // Offline analysis time and recorded age are reported separately.
-  assert.equal(report.summary.latency.offline_analysis_ms.count,3);
-  assert.equal(report.summary.latency.recorded_age_ms.count,3);
+  assert.equal(report.summary.latency.offline_analysis_ms.count,6);
+  assert.equal(report.summary.latency.recorded_age_ms.count,6);
   assert.equal(report.summary.latency.live_loop_ms,null);
   assert.match(report.scope,/live capture-to-decision loop cannot be measured offline/);
  }finally{await rm(root,{recursive:true,force:true});}
@@ -165,6 +170,27 @@ test('without a minimap the motion source is never claimed as separated',async()
   const sources=report.summary.motion.sources;
   assert.equal(sources.camera_only_rotation??0,0);
   assert.equal(sources.vehicle_motion??0,0);
+  assert.equal(sources.camera_motion_candidate??0,0);
+  assert.equal(sources.vehicle_motion_candidate??0,0);
   assert.equal(report.summary.driving_verified,false);
+ }finally{await rm(root,{recursive:true,force:true});}
+});
+
+test('offline wall time includes decoding and missing semantic frames stay in the motion sequence',async()=>{
+ const {root,samples}=await recording(4);
+ try{
+  for(const s of samples)await writeFile(path.join(root,s.minimap_file),'map');
+  let now=0,index=0;
+  const r=await replayObservations(root,{sampling:2,clock:()=>now,
+   minimapReader:async()=>{now+=7;return null;},
+   visionFactory:async()=>({analyze:async()=>{now+=3;index++;return index===2?null:{semantic:null};}})});
+  assert.equal(r.summary.latency.offline_analysis_ms.p50,10);
+  assert.equal(r.summary.motion.frames,4);assert.equal(r.summary.minimap_used,false);
+  assert.equal(r.rows[0].minimap,false);
+  const sparse=[samples[0],samples[3]];
+  await writeFile(path.join(root,'samples.jsonl'),sparse.map(JSON.stringify).join('\n'));
+  const sparseReport=await replayObservations(root,{sampling:2});
+  assert.equal(sparseReport.summary.motion.gap_frames,3);
+  assert.equal(sparseReport.summary.motion.rows[1].sequence_gap,3);
  }finally{await rm(root,{recursive:true,force:true});}
 });

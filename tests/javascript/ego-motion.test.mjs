@@ -1,5 +1,6 @@
 import {test} from 'node:test';import {strict as assert} from 'node:assert';
 import {roadRowProfile,estimateShift,corridorDrift,classifyMotionSource,minimapProfile,minimapMotion,motionSequence,latencyBreakdown,scaleReadiness} from '../../packages/perception/ego-motion.mjs';
+import {decodeMinimap,recordedMinimap} from '../../packages/perception/recorded-minimap.mjs';
 
 // Synthetic masks only: no GTA frame, no measured camera, no degrees.
 const W=64,H=40;
@@ -63,19 +64,34 @@ test('corridor drift is a shape feature with honest units and a residual',()=>{
  assert.equal(corridorDrift({valid:true,points:[{x:.5,y:.6},{x:.5,y:.599},{x:.5,y:.598},{x:.5,y:.597}]}).reason,'corridor_depth_too_small');
 });
 
-test('camera turn and vehicle turn stay separated only when a minimap signal exists',()=>{
+test('road and map evidence produce unverified hypotheses only with confident map data',()=>{
  const road={ok:true,confident:true,shift_pixels:9};
  const still={ok:true,confident:true,shift_pixels:0};
- const mapMoved={ok:true,fraction:.05},mapStill={ok:true,fraction:.001};
- assert.equal(classifyMotionSource({roadShift:road,minimapMotion:mapStill}).source,'camera_only_rotation');
- assert.equal(classifyMotionSource({roadShift:still,minimapMotion:mapMoved}).source,'vehicle_motion');
+ const mapMoved={ok:true,confident:true,axes_complete:true,fraction:.05},mapStill={ok:true,confident:true,axes_complete:true,fraction:.001};
+ assert.equal(classifyMotionSource({roadShift:road,minimapMotion:mapStill}).source,'camera_motion_candidate');
+ assert.equal(classifyMotionSource({roadShift:still,minimapMotion:mapMoved}).source,'vehicle_motion_candidate');
  assert.equal(classifyMotionSource({roadShift:road,minimapMotion:mapMoved}).source,'ambiguous');
- assert.equal(classifyMotionSource({roadShift:still,minimapMotion:mapStill}).source,'stationary');
+ assert.equal(classifyMotionSource({roadShift:still,minimapMotion:mapStill}).source,'no_observed_image_motion');
+ assert.equal(classifyMotionSource({roadShift:still,minimapMotion:mapMoved}).verified,false);
  const noMap=classifyMotionSource({roadShift:road});
  assert.equal(noMap.source,'unseparated_camera_or_vehicle');
  assert.match(noMap.note,/identical/);
  assert.equal(classifyMotionSource({}).reason,'no_motion_signal');
- assert.equal(classifyMotionSource({roadShift:{ok:true,confident:false,shift_pixels:9},minimapMotion:mapMoved}).source,'vehicle_motion_without_road');
+ assert.equal(classifyMotionSource({roadShift:{ok:true,confident:false,shift_pixels:9},minimapMotion:mapMoved}).source,'map_motion_without_road');
+});
+
+test('recorded map decoding distinguishes missing, corrupt and valid lossless pixels',async()=>{
+ const {default:sharp}=await import('sharp');
+ const source=minimap();
+ const png=await sharp(source.data,{raw:{width:source.width,height:source.height,channels:1}}).png().toBuffer();
+ const decoded=await decodeMinimap(png);
+ assert.deepEqual([...decoded.data],[...source.data]);
+ assert.equal((await recordedMinimap(async()=>png)).image.width,40);
+ const missing=await recordedMinimap(async()=>{throw Object.assign(Error('missing'),{code:'ENOENT'});});
+ assert.equal(missing.reason,'minimap_file_missing');assert.equal(missing.present,false);
+ const corrupt=await recordedMinimap(async()=>Buffer.from('not PNG'));
+ assert.equal(corrupt.reason,'minimap_decode_failed');assert.equal(corrupt.present,true);
+ await assert.rejects(recordedMinimap(async()=>{throw Object.assign(Error('denied'),{code:'EACCES'});}),/denied/);
 });
 
 test('missing motion values and invalid thresholds never establish stationarity',()=>{
@@ -86,9 +102,9 @@ test('missing motion values and invalid thresholds never establish stationarity'
 
 // A minimap with one bright vertical line so a movement is visible and a still
 // map really is still; flat images must refuse instead of reporting zero.
-function minimap(shift=0,{w=40,h=20}={}){
+function minimap(shift=0,{w=40,h=20,dy=0}={}){
   const data=new Uint8Array(w*h);
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const xx=((x-shift)%w+w)%w;data[y*w+x]=xx>=12&&xx<18?200:20;}
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const xx=((x-shift)%w+w)%w;data[y*w+x]=xx>=12&&xx<18&&y>=6+dy&&y<11+dy?200:20;}
   return {width:w,height:h,data};
 }
 
@@ -103,8 +119,9 @@ test('inter-frame shift is measured over a sequence, never on a single frame',()
  assert.equal(seq.rows[1].minimap_motion.ok,true);
  assert.ok(Math.abs(seq.rows[1].minimap_motion.fraction-.05)<.01);
  // The last step moved nothing (road and map both steady), so it is stationary.
- assert.equal(seq.rows[2].source.source,'stationary');
- assert.equal(seq.sources.stationary,1);
+ assert.equal(seq.rows[2].source.source,'no_observed_image_motion');
+ assert.equal(seq.sources.no_observed_image_motion,1);
+ assert.equal(seq.gap_frames,null); // No source indices or declared gap.
  assert.equal(motionSequence([]).reason,'frames_required');
  assert.equal(motionSequence(frames,{gapFrames:0}).reason,'invalid_gap_frames');
  assert.equal(motionSequence(frames,{gapFrames:7}).gap_frames,7);
@@ -127,6 +144,7 @@ test('three clocks stay three measurements',()=>{
  // A live loop cannot be produced offline; it is absent, not zero.
  assert.equal(l.live_loop_ms,null);
  assert.match(l.scope,/never summed/);
+ assert.equal(latencyBreakdown({offlineAnalysisMs:[-1,NaN,2,4]}).offline_analysis_ms.p50,2);
 });
 
 test('degrees and metres stay blocked until an independent scale exists',()=>{
@@ -145,4 +163,43 @@ test('degrees and metres stay blocked until an independent scale exists',()=>{
  assert.equal(both.distance_ready,true);
  assert.equal(both.degrees_emitted,false);
  assert.deepEqual(both.blockers,[]);
+ assert.equal(both.physical_units_allowed,false);
+ assert.equal(both.verification,'caller_declarations_only');
+ for(const count of [Infinity,2.5,'2'])assert.equal(scaleReadiness({distanceScale:{method:'known_distance',pixels_per_metre:10,independent_checks:count}}).distance_ready,false);
+ for(const scale of [0,-1,Infinity])assert.equal(scaleReadiness({angleCalibration:{method:'independent_heading',degrees_per_pixel:scale,independent_checks:2}}).angle_ready,false);
+});
+
+test('map displacement handles leftward and vertical movement without inventing a vehicle measurement',()=>{
+ const a=minimapProfile(minimap());
+ const left=minimapMotion(a,minimapProfile(minimap(-2)));
+ assert.equal(left.ok,true);assert.ok(left.fraction>0);
+ assert.equal(left.signed_fraction.x,-.05);
+ const down=minimapMotion(a,minimapProfile(minimap(0,{dy:2})));
+ assert.equal(down.ok,true);assert.equal(down.signed_fraction.y,.1);
+ const road={ok:true,confident:true,shift_pixels:0};
+ assert.equal(classifyMotionSource({roadShift:road,minimapMotion:down}).source,'vehicle_motion_candidate');
+ assert.equal(classifyMotionSource({roadShift:road,minimapMotion:{...down,confident:false}}).minimap_ok,false);
+ const stripe=minimap();for(let y=0;y<stripe.height;y++)stripe.data.copyWithin(y*stripe.width,8*stripe.width,9*stripe.width);
+ const horizontalOnly=minimapMotion(minimapProfile(stripe),minimapProfile(stripe));
+ assert.equal(horizontalOnly.axes_complete,false);
+ assert.equal(classifyMotionSource({roadShift:road,minimapMotion:horizontalOnly}).reason,'minimap_axis_unobserved');
+});
+
+test('missing frames break both comparisons and actual source indices determine each gap',()=>{
+ const frames=[{source_index:0,semantic:mask(),minimap:minimap()},
+   {source_index:4,semantic:null,minimap:null},
+   {source_index:9,semantic:mask(3),minimap:minimap(2)},
+   {source_index:10,semantic:mask(3),minimap:minimap(2)}];
+ const seq=motionSequence(frames);
+ assert.deepEqual(seq.rows.map(r=>r.gap_frames),[null,4,5,1]);
+ assert.equal(seq.gap_frames,null);assert.deepEqual(seq.gap_range,{min:1,max:5,unknown:0});
+ assert.equal(seq.rows[2].road_shift.ok,false);assert.equal(seq.rows[2].minimap_motion.ok,false);
+ assert.equal(seq.shift_pixels.count,1);
+ assert.equal(seq.rows[3].source.source,'no_observed_image_motion');
+ for(const bad of [{source_index:0},{generation:2},{capture_start_ms:99},{sequence:1}]){
+   const a={source_index:0,generation:1,sequence:1,capture_start_ms:100,semantic:mask(),minimap:minimap()};
+   const b={...a,source_index:1,capture_start_ms:200,sequence:2,...bad};
+   const row=motionSequence([a,b]).rows[1];
+   assert.equal(row.source.source,'unknown');assert.equal(row.road_shift,null);assert.equal(row.minimap_motion,null);
+ }
 });

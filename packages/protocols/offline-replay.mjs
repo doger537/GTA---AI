@@ -5,7 +5,8 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
 import {percentiles} from './latency-trace.mjs';
-import {motionSequence,latencyBreakdown} from '../perception/ego-motion.mjs';
+import {MotionSequence,latencyBreakdown,scaleReadiness} from '../perception/ego-motion.mjs';
+import {recordedMinimap} from '../perception/recorded-minimap.mjs';
 
 const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
 
@@ -89,9 +90,8 @@ export async function replayObservations(root,{
   let reader=null,vision=null,overlayError=null;
   // Motion needs neighbours, so it is collected from the whole recording and not
   // only from the rows kept for the report.
-  const sequence=[];
-  const kept=Math.min(sampling,samples.length);
-  const gapFrames=samples.length>1&&kept>1?Math.max(1,Math.round((samples.length-1)/(kept-1))):1;
+  const motion=new MotionSequence();
+  const ages=[],analysisTimes=[];
   const rows=[];
   // One corridor computation feeds both the decision and the saved overlay so a
   // human cannot be shown a different path than the one that produced the command.
@@ -100,20 +100,21 @@ export async function replayObservations(root,{
     if(readerFactory){reader=await readerFactory(hudProfile(selected[0].hud_geometry));}
     if(visionFactory)vision=await visionFactory();
     for(const [index,s] of samples.entries()){
-      const hudBytes=await readFile(path.join(root,s.hud_file)),roadBytes=await readFile(path.join(root,s.file));
-      // The minimap is the only independent signal that separates a camera turn
-      // from the vehicle turning; without it the source stays unseparated.
-      const minimapBytes=s.minimap_file?await readFile(path.join(root,s.minimap_file)).catch(()=>null):null;
       const started=clock();
+      const hudBytes=await readFile(path.join(root,s.hud_file)),roadBytes=await readFile(path.join(root,s.file));
+      const map=await recordedMinimap(()=>readFile(path.join(root,s.minimap_file)),minimapReader);
       const state=reader?await reader.read(hudBytes,s.capture_start_ms):null;
       const p=vision?await vision.analyze(roadBytes):null;
+      const corridor=p?.semantic?connectedRoadGeometry(p.semantic,intent):null;
+      const motionRow=motion.update({file:s.file,sequence:s.sequence,source_index:Number(s.file.slice(0,-4)),generation:s.generation,
+        capture_start_ms:s.capture_start_ms,semantic:p?.semantic,minimap:map.image,minimap_reason:map.reason});
       const analysisMs=clock()-started;
+      ages.push(s.age_ms);analysisTimes.push(analysisMs);
       const truth=labelled(annotations,s.file,session.id);
       const row={index,file:s.file,sequence:s.sequence,capture_start_ms:s.capture_start_ms,capture_end_ms:s.capture_end_ms,recorded_age_ms:s.age_ms,
-        hud_sha256:sha256(hudBytes),road_sha256:sha256(roadBytes),minimap:Boolean(minimapBytes),analysis_ms:analysisMs,label:truth,state,vision:p?{road_fraction:p.road_fraction,rows:p.rows,vehicles:p.vehicles?.length??0,inference_ms:p.inference_ms}:null};
-      const corridor=p?.semantic?connectedRoadGeometry(p.semantic,intent):null;
-      if(p?.semantic)sequence.push({file:s.file,sequence:s.sequence,semantic:p.semantic,
-        minimap:minimapBytes&&minimapReader?await minimapReader(minimapBytes):null});
+        hud_sha256:sha256(hudBytes),road_sha256:sha256(roadBytes),minimap:motionRow.minimap_profile_ok,
+        minimap_file_present:map.present,minimap_reason:motionRow.minimap_profile_reason,
+        analysis_ms:analysisMs,label:truth,state,vision:p?{road_fraction:p.road_fraction,rows:p.rows,vehicles:p.vehicles?.length??0,inference_ms:p.inference_ms}:null};
       if(skillRunner){
         row.corridor=corridor?{valid:corridor.valid,reason:corridor.reason,points:corridor.points??null,near_offset:corridor.near_offset??null,curvature:corridor.curvature??null}:null;
         const skillFrame={generation:s.generation,corridor,sequence:s.sequence,capture_start_ms:s.capture_start_ms,capture_end_ms:s.capture_end_ms,age_ms:s.age_ms,state,vision:p,stop_requested:Boolean(s.stop_requested??skill?.stop_requested)};
@@ -143,13 +144,14 @@ export async function replayObservations(root,{
     speed_error_kmh:percentiles(speedErrors),
     corridor_geometry_valid:rows.filter(r=>r.corridor?.valid===true).length,
     corridor_rejections:Object.fromEntries([...new Set(rows.filter(r=>r.corridor&&!r.corridor.valid).map(r=>r.corridor.reason))].map(reason=>[reason,rows.filter(r=>r.corridor?.reason===reason).length])),
-    analysis_ms:percentiles(rows.map(r=>r.analysis_ms)),
+    analysis_ms:percentiles(analysisTimes),
     // Three different clocks, reported side by side and never merged.
-    latency:latencyBreakdown({recordedAgeMs:rows.map(r=>r.recorded_age_ms),offlineAnalysisMs:rows.map(r=>r.analysis_ms)}),
+    latency:latencyBreakdown({recordedAgeMs:ages,offlineAnalysisMs:analysisTimes}),
     // The shift is between recording neighbours over the whole sequence; gap_frames
     // says how many original frames one step covers.
-    motion:sequence.length?motionSequence(sequence,{gapFrames}):null,
-    minimap_used:Boolean(minimapReader&&rows.some(r=>r.minimap)),
+    motion:motion.summary(),
+    minimap_used:motion.rows.some(r=>r.minimap_profile_ok),
+    scale_readiness:scaleReadiness(),
     decision_states:Object.fromEntries([...new Set(decisions.map(d=>d.state))].map(s=>[s,decisions.filter(d=>d.state===s).length])),
     rejection_reasons:Object.fromEntries([...new Set(decisions.filter(d=>d.state==='FAULT').map(d=>d.reason))].map(s=>[s,decisions.filter(d=>d.state==='FAULT'&&d.reason===s).length])),
     path_overlay_errors:overlayError,
