@@ -4,6 +4,14 @@ import {tmpdir} from 'node:os';import path from 'node:path';
 import {ascentProfile,edgeXAt,rowsAvailable,classifyReach,groundDistance,cameraCalibration,reachScope,ROW_GEOMETRY} from '../../packages/perception/asphalt-limit.mjs';
 import {emptyEdgeFile,validateEdgeFile,maskRowsToEdge,edgeReport,plannerRows} from '../../experiments/tools/audit-asphalt-edge.mjs';
 
+
+// A calibration is verified only against measured distances. These two references
+// are stated as observations; the test checks that the model agrees with them.
+const REF_A={name:'kerb-marker',imageY:.80,observedM:7.31,independent:true};
+const REF_B={name:'junction-post',imageY:.98,observedM:4.11,independent:true};
+const verifiedCalibration=(overrides={})=>cameraCalibration({heightM:1.2,pitchDeg:-3,verticalFovDeg:40,
+  imageHeightPx:668,source:'measured',references:[REF_A,REF_B],...overrides});
+
 // A straight image-space edge, bottom of the frame upwards. No GTA frame here.
 const edge=[[.52,.58],[.50,.52],[.49,.46],[.50,.40]];
 
@@ -68,19 +76,20 @@ test('rows never become metres without a measured camera calibration',()=>{
  assert.equal(none.ok,false);
  assert.equal(none.reason,'camera_calibration_required');
  assert.equal(none.image_fraction,.44);
- assert.match(none.note,/without a measured camera height/);
+ assert.match(none.note,/without a verified camera calibration/);
  // Incomplete calibrations are refused field by field.
  const incomplete=cameraCalibration({heightM:1.2,source:'measured'});
  assert.equal(incomplete.ok,false);
  assert.deepEqual(incomplete.problems.sort(),['camera_pitch_required','image_height_required','vertical_fov_required']);
- assert.equal(cameraCalibration({heightM:1.2,pitchDeg:0,verticalFovDeg:40,imageHeightPx:668,source:'derived'}).problems.includes('calibration_source_not_measured'),true);
- assert.equal(cameraCalibration({heightM:1.2,pitchDeg:95,verticalFovDeg:40,imageHeightPx:668,source:'measured'}).problems.includes('camera_pitch_out_of_range'),true);
+ assert.equal(cameraCalibration({heightM:1.2,pitchDeg:0,verticalFovDeg:40,imageHeightPx:668,source:'derived',references:[REF_A,REF_B]}).problems.includes('calibration_source_not_measured'),true);
+ assert.equal(cameraCalibration({heightM:1.2,pitchDeg:95,verticalFovDeg:40,imageHeightPx:668,source:'measured',references:[REF_A,REF_B]}).problems.includes('camera_pitch_out_of_range'),true);
  assert.match(ROW_GEOMETRY,/not equidistant/);
 });
 
 test('with a calibration the ground distance increases towards the horizon and refuses above it',()=>{
- const cal=cameraCalibration({heightM:1.2,pitchDeg:-3,verticalFovDeg:40,imageHeightPx:668,source:'measured'});
+ const cal=verifiedCalibration();
  assert.equal(cal.ok,true);
+ assert.equal(cal.verified,true);
  assert.ok(Math.abs(cal.focal_px-917.7)<1);
  const near=groundDistance({y:.98,calibration:cal}),mid=groundDistance({y:.80,calibration:cal}),far=groundDistance({y:.60,calibration:cal});
  assert.equal(near.ok&&mid.ok&&far.ok,true);
@@ -100,11 +109,10 @@ test('the scope says which half of the task is done',()=>{
  const rowsOnly=reachScope({haveMarks:true,haveFrames:true});
  assert.equal(rowsOnly.rows_known,true);
  assert.equal(rowsOnly.metres_known,false);
- assert.deepEqual(rowsOnly.blockers,['no_camera_calibration']);
+ assert.deepEqual(rowsOnly.blockers,['no_verified_camera_calibration']);
  const nothing=reachScope({});
- assert.deepEqual(nothing.blockers,['no_frames_measured','no_asphalt_edge_marks','no_camera_calibration']);
- const cal=cameraCalibration({heightM:1.2,pitchDeg:-3,verticalFovDeg:40,imageHeightPx:668,source:'measured'});
- assert.deepEqual(reachScope({haveMarks:true,haveFrames:true,calibration:cal}).blockers,[]);
+ assert.deepEqual(nothing.blockers,['no_frames_measured','no_asphalt_edge_marks','no_verified_camera_calibration']);
+ assert.deepEqual(reachScope({haveMarks:true,haveFrames:true,calibration:verifiedCalibration()}).blockers,[]);
 });
 
 test('a template is empty, keeps the source hash and refuses unknown obstructions',()=>{
@@ -174,7 +182,15 @@ test('the report refuses a file with no marks at all',async()=>{
  try{
   const file=emptyEdgeFile({files:['000000.jpg']});
   await writeFile(path.join(dir,'edges.json'),JSON.stringify(file));
-  await assert.rejects(edgeReport({edgeFile:path.join(dir,'edges.json'),root:dir}),/No frame has a marked asphalt edge/);
+  // A file with no marks is written with an explanation, not thrown away: a bare
+  // zero could otherwise be read as "the view allowed nothing".
+  const report=await edgeReport({edgeFile:path.join(dir,'edges.json'),root:dir});
+  assert.equal(report.summary.marked,0);
+  assert.equal(report.why_not_scored.reason,'no_asphalt_edge_marks');
+  assert.equal(report.why_not_scored.counts.empty,1);
+  assert.match(report.why_not_scored.explanation,/not labelled/);
+  assert.match(report.why_not_scored.note,/says nothing about what the camera could see/);
+  assert.equal(report.scope_of_units.rows_known,false);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 
@@ -184,8 +200,8 @@ test('the report turns the marked edge into metres only with a measured calibrat
   const file=emptyEdgeFile({files:['000000.jpg']});
   file.frames[0].edge=[[.5,.58],[.5,.50]];
   await writeFile(path.join(dir,'edges.json'),JSON.stringify(file));
-  const calibration={heightM:1.2,pitchDeg:-3,verticalFovDeg:40,imageHeightPx:668,source:'measured'};
-  const report=await edgeReport({edgeFile:path.join(dir,'edges.json'),root:dir,calibration});
+  const report=await edgeReport({edgeFile:path.join(dir,'edges.json'),root:dir,
+    calibration:{heightM:1.2,pitchDeg:-3,verticalFovDeg:40,imageHeightPx:668,source:'measured',references:[REF_A,REF_B]}});
   assert.equal(report.calibration.ok,true);
   assert.equal(report.scope_of_units.metres_known,true);
   // A seed at y=.58 with this pitch is 207 m away: the perspective is strongly
@@ -197,5 +213,71 @@ test('the report turns the marked edge into metres only with a measured calibrat
   // refused instead of being reported as an implausible distance.
   assert.equal(report.rows[0].metres.edge.ok,false);
   assert.equal(report.rows[0].metres.edge.reason,'ray_above_horizon');
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('a claimed calibration without independent references yields no metres',()=>{
+ // Exactly the hole this test guards: numbers plus source:"measured" is a claim.
+ const claim=cameraCalibration({heightM:1.2,pitchDeg:-3,verticalFovDeg:40,imageHeightPx:668,source:'measured'});
+ assert.equal(claim.ok,false);
+ assert.equal(claim.verified,false);
+ assert.ok(claim.problems.includes('at_least_two_references_required'));
+ assert.equal(groundDistance({y:.80,calibration:claim}).reason,'camera_calibration_required');
+ // A hand-written object that merely says ok:true must be refused too.
+ const forged={ok:true,verified:true,height_m:1.2,pitch_deg:-3,focal_px:918,image_height_px:668};
+ assert.equal(groundDistance({y:.80,calibration:forged}).reason,'camera_calibration_required');
+ // And a verified calibration whose references failed is not usable either.
+ const failed=verifiedCalibration({references:[REF_A,REF_B],maxErrorPct:0.001});
+ assert.equal(failed.ok,false);
+ assert.equal(groundDistance({y:.80,calibration:failed}).reason,'camera_calibration_required');
+});
+
+test('references must disagree with the model only within tolerance and cover different rows',()=>{
+ // Two references at nearly the same row are one measurement repeated.
+ const sameRow=verifiedCalibration({references:[REF_A,{...REF_B,imageY:.81,observedM:7.2}]});
+ assert.equal(sameRow.ok,false);
+ assert.ok(sameRow.problems.includes('references_not_independent_rows'));
+ // A reference whose measured distance contradicts the model fails the calibration.
+ const wrong=verifiedCalibration({references:[REF_A,{...REF_B,observedM:12}]});
+ assert.equal(wrong.ok,false);
+ assert.ok(wrong.problems.some(p=>/camera_model_disagrees_with_measurement/.test(p)));
+ // Independence has to be declared explicitly, and the report says it is only declared.
+ const undeclared=verifiedCalibration({references:[{...REF_A,independent:undefined},REF_B]});
+ assert.equal(undeclared.ok,false);
+ assert.ok(undeclared.problems.some(p=>/independence_must_be_declared/.test(p)));
+ const good=verifiedCalibration();
+ assert.equal(good.ok,true);
+ assert.match(good.verification.independence,/declared by the caller, not provable/);
+ assert.ok(good.verification.max_error_pct<=10);
+});
+
+test('a file whose marks use another shape is diagnosed, not silently scored zero',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'edge-'));
+ try{
+  const base={schema_version:1,session:'s',frames:[{file:'000000.jpg',edge:[{x:.5,y:.58},{x:.5,y:.4}],obstruction:null},
+    {file:'000010.jpg',edge:[.5,.58,.5,.4],obstruction:null},{file:'000020.jpg',edge:[],obstruction:null}]};
+  await writeFile(path.join(dir,'edges.json'),JSON.stringify(base));
+  const report=await edgeReport({edgeFile:path.join(dir,'edges.json'),root:dir});
+  assert.equal(report.summary.marked,0);
+  assert.equal(report.why_not_scored.counts.unexpected_shape,2);
+  assert.equal(report.why_not_scored.counts.empty,1);
+  assert.match(report.why_not_scored.hints[0],/\[x,y\] pairs/);
+  assert.equal(report.summary.view_insufficient,null);
+  assert.equal(report.rows.every(r=>r.skipped),true);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('one unreadable frame does not abort the report',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'edge-'));
+ try{
+  const file=emptyEdgeFile({files:['000000.jpg','000010.jpg']});
+  file.frames[0].edge=[[.5,.58],[.5,.40]];
+  file.frames[1].edge=[[.5,.40],[.5,.58]];
+  await writeFile(path.join(dir,'edges.json'),JSON.stringify(file));
+  const report=await edgeReport({edgeFile:path.join(dir,'edges.json'),root:dir});
+  assert.equal(report.summary.marked,1);
+  assert.equal(report.rows[1].skipped,'invalid_edge');
+  assert.equal(report.rows[1].reason,'edge_must_ascend');
+  assert.equal(report.summary.scored,1);
  }finally{await rm(dir,{recursive:true,force:true});}
 });

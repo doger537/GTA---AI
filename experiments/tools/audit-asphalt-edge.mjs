@@ -88,6 +88,50 @@ export function maskRowsToEdge({prediction,profile,gridHeight=null}={}){
   return {ok:true,rows:Math.max(0,rows),last_usable_y:lastUsable,edge_y:farY,seed_y:seedY,grid_height:h};
 }
 
+// Why a file has no usable marks. A zero in the summary must say whether the marks
+// are missing, or present under a shape this tool cannot read: silently reporting
+// "0 of 40" is not a measurement, it is a lost measurement.
+export function diagnoseMarks(file){
+  const frames=Array.isArray(file?.frames)?file.frames:[];
+  const counts={empty:0,marked:0,invalid:0,edge_not_array:0,unexpected_shape:0};
+  const hints=[];
+  for(const [i,frame] of frames.entries()){
+    const edge=frame?.edge;
+    if(edge===undefined||edge===null){
+      counts.empty++;
+      if(i===0)hints.push('frame 0 has no "edge" field at all; the file may come from another tool or an older template');
+      continue;
+    }
+    if(!Array.isArray(edge)){counts.edge_not_array++;continue;}
+    if(!edge.length){counts.empty++;continue;}
+    // Common near-misses: objects instead of [x,y] pairs, or a flat x,y,x,y list.
+    const firstPair=edge[0];
+    if(firstPair&&typeof firstPair==='object'&&!Array.isArray(firstPair)){
+      counts.unexpected_shape++;
+      if(hints.length<3)hints.push('edge uses {'+Object.keys(firstPair).join(',')+'} objects; this tool needs [x,y] pairs, e.g. [[0.5,0.58],[0.5,0.40]]');
+      continue;
+    }
+    if(Array.isArray(firstPair)&&firstPair.length!==2){
+      counts.unexpected_shape++;
+      if(hints.length<3)hints.push('edge entries have '+firstPair.length+' numbers; exactly [x,y] is required');
+      continue;
+    }
+    if(typeof firstPair==='number'){
+      counts.unexpected_shape++;
+      if(hints.length<3)hints.push('edge is a flat number list; group it into [x,y] pairs');
+      continue;
+    }
+    const profile=ascentProfile(edge);
+    if(profile.ok)counts.marked++;else{counts.invalid++;if(hints.length<3)hints.push(frame?.file+': '+profile.reason);}
+  }
+  const keys=frames[0]?Object.keys(frames[0]).join(','):'';
+  return {counts,frame_keys:keys,hints,
+    explanation:counts.marked?null:counts.empty===frames.length
+      ?'Every frame has an empty edge list: the template was copied but not labelled. Mark the far edge of visible asphalt on each frame you want scored.'
+      :counts.unexpected_shape?'Edge data is present but in a shape this tool does not read.'+' '+(hints[0]??'')
+      :'Marks are present but invalid; see hints.'};
+}
+
 export function plannerRows(corridor){
   if(!corridor?.valid||!Array.isArray(corridor.points)||corridor.points.length<2)return null;
   const near=corridor.points[0],far=corridor.points.at(-1);
@@ -98,13 +142,26 @@ export async function edgeReport({edgeFile,root,calibration=null,requiredRows=13
   const file=JSON.parse(await readFile(edgeFile,'utf8'));
   const known=new Set(file.frames.map(f=>f.file));
   const check=validateEdgeFile(file,{knownFiles:known});
-  if(!check.ok)throw Error('Invalid edge file: '+check.problems.slice(0,5).join('; '));
-  if(!check.marked)throw Error('No frame has a marked asphalt edge; mark the frames before building a reach report');
+  const diagnosis=diagnoseMarks(file);
+  const noMarks=check.marked===0;
+  // Nothing scored means there is nothing to validate against: the report explains
+  // the shape of the file instead of failing with a validator message. With real
+  // marks present, a malformed file is still a hard error.
+  if(noMarks&&!diagnosis.counts.empty+diagnosis.counts.unexpected_shape+diagnosis.counts.invalid){
+    /* empty frame list */ }
+  // A malformed polyline in one frame is a per-frame skip (reported in rows), not
+  // a reason to discard the whole file. Structural problems still abort.
+  const structural=['invalid file name','file is not part of the recording','duplicate frame',
+    'unknown obstruction','edge must be an array','schema_version','frames must be an array'];
+  const fatal=check.problems.filter(p=>structural.some(k=>p.includes(k)));
+  if(!noMarks&&fatal.length)throw Error('Invalid edge file: '+fatal.slice(0,5).join('; '));
   const cal=calibration?cameraCalibration(calibration):null;
   const rows=[];
   for(const frame of file.frames){
     if(!Array.isArray(frame.edge)||!frame.edge.length){rows.push({file:frame.file,skipped:'not_marked'});continue;}
     const profile=ascentProfile(frame.edge);
+    // A malformed polyline is reported per frame; it never aborts the whole report.
+    if(!profile.ok){rows.push({file:frame.file,skipped:'invalid_edge',reason:profile.reason});continue;}
     const stem=path.basename(frame.file).replace(/\.(?:jpg|png)$/i,'');
     // The prediction file sits next to the recording, never inferred from a label.
     const predictionPath=path.join(root,stem+predictionSuffix);
@@ -118,7 +175,7 @@ export async function edgeReport({edgeFile,root,calibration=null,requiredRows=13
     const reach=available.ok?classifyReach({available,maskReachRows:mask?.ok?mask.rows:null,planner:plannerRows(corridor),requiredRows}):available;
     // Metres are reported only for a measured calibration, and only for the
     // marked edge and the planner seed; every other row stays a row.
-    const metres=cal?.ok?{
+    const metres=cal?.verified===true&&cal?.ok?{
       at_edge:groundDistance({y:profile.far.y,calibration:cal}),
       at_seed:groundDistance({y:profile.near.y,calibration:cal})}:null;
     rows.push({file:frame.file,obstruction:frame.obstruction??null,note:frame.note??'',
@@ -135,6 +192,11 @@ export async function edgeReport({edgeFile,root,calibration=null,requiredRows=13
   const blockers={};
   for(const r of scored){const k=r.reach.first_blocker??'none';blockers[k]=(blockers[k]??0)+1;}
   return {edge_file:path.resolve(edgeFile),session:file.session??null,required_rows:requiredRows,
+    // Present whenever nothing could be scored; null once real marks exist.
+    why_not_scored:noMarks?{reason:'no_asphalt_edge_marks',counts:diagnosis.counts,frame_keys:diagnosis.frame_keys,
+      validation_problems:check.problems.slice(0,5),
+      hints:diagnosis.hints,explanation:diagnosis.explanation,
+      note:'This file measures nothing yet. The 22/25 from the earlier mask analysis still only means the model found no road there; it says nothing about what the camera could see.'}:null,
     scope:'Development reach report: image rows available at a marked asphalt edge versus the mask and the planner. Not a distance, not a driving result.',
     calibration:cal?(cal.ok?{ok:true,source:cal.source,focal_px:cal.focal_px,height_m:cal.height_m,pitch_deg:cal.pitch_deg}:{ok:false,reason:cal.reason,problems:cal.problems}):null,
     scope_of_units:reachScope({calibration:cal?.ok?cal:null,haveMarks:check.marked>0,haveFrames:file.frames.length>0}),
@@ -143,8 +205,9 @@ export async function edgeReport({edgeFile,root,calibration=null,requiredRows=13
       view_rows:percentiles(scored.map(r=>r.available_rows).filter(Number.isFinite)),
       mask_rows:percentiles(scored.map(r=>r.mask_rows).filter(Number.isFinite)),
       planner_rows:percentiles(scored.map(r=>r.planner_rows).filter(Number.isFinite)),
-      view_insufficient:scored.filter(r=>r.reach.eye_view_insufficient).length,
-      view_allows_required:scored.filter(r=>r.reach.view_allows_required).length},
+      // With nothing scored these are null: a zero here would read as a measured zero.
+      view_insufficient:scored.length?scored.filter(r=>r.reach.eye_view_insufficient).length:null,
+      view_allows_required:scored.length?scored.filter(r=>r.reach.view_allows_required).length:null},
     rows,none_guessed:'Frames without a mark are skipped, never filled with a prediction.'};
 }
 
@@ -194,6 +257,13 @@ if(isMain){
     const out=arg('out',path.resolve(root,'asphalt-reach-report.json'));
     await mkdir(path.dirname(out),{recursive:true});
     await writeFile(out,JSON.stringify(report,null,2));
-    console.log(JSON.stringify({report:out,summary:report.summary,units:report.scope_of_units},null,2));
+    console.log(JSON.stringify({report:out,summary:report.summary,units:report.scope_of_units,
+      why_not_scored:report.why_not_scored},null,2));
+    if(report.why_not_scored){
+      // stdout stays machine-readable; the human reads stderr.
+      console.error('\nNothing was scored: '+report.why_not_scored.explanation);
+      for(const hint of report.why_not_scored.hints)console.error('  - '+hint);
+      process.exitCode=2;
+    }
   }
 }

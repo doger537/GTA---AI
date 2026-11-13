@@ -95,53 +95,108 @@ export function classifyReach({available=null,planner=null,maskReachRows=null,re
     scope:ASPHALT_SCOPE};
 }
 
-// Real metric reach needs a camera calibration and a measured reference. The
-// caller supplies it; this function never invents pitch, height or focal length.
-export function cameraCalibration({heightM=null,pitchDeg=null,verticalFovDeg=null,imageHeightPx=null,source=null}={}){
+// Real metric reach needs a camera calibration, and a calibration is only as good
+// as the evidence behind it. A number plus source:"measured" is a claim, not a
+// measurement: it must be checked against at least two independent known distances
+// at distinct image rows. This function does that check and refuses otherwise.
+export function cameraCalibration({heightM=null,pitchDeg=null,verticalFovDeg=null,imageHeightPx=null,source=null,
+  references=[],maxErrorPct=10,minRowsApart=0.05}={}){
   const problems=[];
-  const finite=(v)=>num(v)&&v>0;
-  if(!finite(heightM))problems.push('camera_height_required');
+  const num0=v=>num(v);
+  if(!num(heightM)||heightM<=0)problems.push('camera_height_required');
   // Pitch may legitimately be exactly 0 (camera parallel to the road); only a
   // missing or non-numeric value is a problem.
-  if(!num(pitchDeg))problems.push('camera_pitch_required');
-  if(num(pitchDeg)&&(pitchDeg<=-90||pitchDeg>=90))problems.push('camera_pitch_out_of_range');
-  if(!finite(verticalFovDeg)||verticalFovDeg>=180)problems.push('vertical_fov_required');
-  if(!finite(imageHeightPx)||!Number.isInteger(imageHeightPx))problems.push('image_height_required');
+  if(!num0(pitchDeg))problems.push('camera_pitch_required');
+  else if(pitchDeg<=-90||pitchDeg>=90)problems.push('camera_pitch_out_of_range');
+  if(!num(verticalFovDeg)||verticalFovDeg<=0||verticalFovDeg>=180)problems.push('vertical_fov_required');
+  if(!num(imageHeightPx)||!Number.isInteger(imageHeightPx))problems.push('image_height_required');
   if(source!=='measured')problems.push('calibration_source_not_measured');
-  if(problems.length)return {ok:false,reason:'incomplete_camera_calibration',problems};
-  // Focal length in pixels from the vertical field of view: f = (H/2)/tan(fov/2).
+  if(!num(maxErrorPct)||maxErrorPct<=0||maxErrorPct>=100)problems.push('invalid_max_error');
+  if(!num(minRowsApart)||minRowsApart<=0||minRowsApart>=1)problems.push('invalid_min_rows_apart');
+  if(!Array.isArray(references))problems.push('references_must_be_an_array');
+  if(problems.length)return {ok:false,verified:false,reason:'incomplete_camera_calibration',problems};
+
   const focalPx=(imageHeightPx/2)/Math.tan((verticalFovDeg*Math.PI/180)/2);
-  return {ok:true,height_m:heightM,pitch_deg:pitchDeg,vertical_fov_deg:verticalFovDeg,
-    image_height_px:imageHeightPx,focal_px:focalPx,source,
-    scope:'Measured camera calibration only. Pitch sign convention: positive looks up'};
+  const base={height_m:heightM,pitch_deg:pitchDeg,vertical_fov_deg:verticalFovDeg,image_height_px:imageHeightPx,
+    focal_px:focalPx,source,
+    scope:'Measured camera calibration checked against independent references. Pitch sign convention: positive looks up'};
+
+  // Each reference is a ground distance that was measured independently and seen
+  // at a specific image row. The model is compared with the observation.
+  const refProblems=[],checked=[];
+  for(const [i,r] of references.entries()){
+    const at='reference '+i;
+    if(!r||typeof r!=='object'){refProblems.push(at+': invalid');continue;}
+    if(typeof r.name!=='string'||!r.name.trim())refProblems.push(at+': name_required');
+    if(!num(r.imageY)||r.imageY<0||r.imageY>1){refProblems.push(at+': image_y_required');continue;}
+    if(!num(r.observedM)||r.observedM<=0){refProblems.push(at+': observed_distance_required');continue;}
+    if(typeof r.independent!=='boolean')refProblems.push(at+': independence_must_be_declared');
+    const predicted=groundDistanceUnchecked({y:r.imageY,focalPx,heightM,pitchDeg,imageHeightPx});
+    if(!predicted.ok){refProblems.push(at+': '+predicted.reason);continue;}
+    const errorPct=Math.abs(predicted.distance_m-r.observedM)/r.observedM*100;
+    checked.push({name:r.name,image_y:r.imageY,observed_m:r.observedM,predicted_m:predicted.distance_m,
+      error_pct:errorPct,independent:r.independent===true,ok:errorPct<=maxErrorPct});
+    if(errorPct>maxErrorPct)refProblems.push(at+': camera_model_disagrees_with_measurement');
+    if(r.independent!==true)refProblems.push(at+': reference_not_declared_independent');
+  }
+  if(references.length<2)refProblems.push('at_least_two_references_required');
+  // Two references that look at nearly the same row are one measurement repeated:
+  // they cannot cross-check the perspective.
+  const rows=checked.map(c=>c.image_y).sort((a,b)=>a-b);
+  const rowsApart=rows.length>1?rows.at(-1)-rows[0]:0;
+  if(checked.length>1&&rowsApart<minRowsApart)refProblems.push('references_not_independent_rows');
+  const verified=refProblems.length===0;
+  return {...base,ok:verified,verified,
+    reason:verified?null:'calibration_not_verified',
+    problems:refProblems,
+    verification:verified?{references:checked,max_error_pct:maxErrorPct,rows_apart:rowsApart,
+      // Stated plainly: this module checks numbers and declared independence. It
+      // cannot prove that the two measurements were physically independent.
+      independence:'declared by the caller, not provable here'}:null};
 }
 
-// Distance to the ground point seen at image fraction y (0 = top, 1 = bottom),
-// using the pinhole model. With no calibration the only honest answer is a
-// refusal that still reports the image fraction.
-export function groundDistance({y,calibration=null,horizonY=null}={}){
-  if(!num(y)||y<0||y>1)return {ok:false,reason:'invalid_image_fraction'};
-  if(!calibration?.ok)return {ok:false,reason:'camera_calibration_required',image_fraction:y,
-    note:'Rows cannot be converted to metres without a measured camera height, pitch and field of view'};
-  const f=calibration.focal_px,h=calibration.height_m,pitch=calibration.pitch_deg*Math.PI/180;
-  // Angle below the optical axis of the ray through row y.
-  const theta=Math.atan((y-0.5)*calibration.image_height_px/f);
-  // Ground plane is pitch radians below the axis at camera height h.
+// Shared pinhole maths. Kept private so a caller cannot get a distance from a
+// calibration object that was never verified.
+function groundDistanceUnchecked({y,focalPx,heightM,pitchDeg,imageHeightPx}){
+  const pitch=pitchDeg*Math.PI/180;
+  const theta=Math.atan((y-0.5)*imageHeightPx/focalPx);
   const angle=pitch+theta;
-  if(Math.abs(angle)<1e-6)return {ok:false,reason:'ray_parallel_to_ground',image_fraction:y};
-  if(angle<=0)return {ok:false,reason:'ray_above_horizon',image_fraction:y};
-  const distance=h/Math.tan(angle);
-  if(!num(distance)||distance<=0||distance>1e5)return {ok:false,reason:'distance_out_of_range',image_fraction:y};
-  return {ok:true,distance_m:distance,image_fraction:y,angle_below_axis_deg:angle*180/Math.PI,
-    scope:'Ground-plane distance for a measured calibration; ignores road slope and body pitch changes'};
+  if(Math.abs(angle)<1e-6)return {ok:false,reason:'ray_parallel_to_ground'};
+  if(angle<=0)return {ok:false,reason:'ray_above_horizon'};
+  const distance=heightM/Math.tan(angle);
+  if(!num(distance)||distance<=0||distance>1e5)return {ok:false,reason:'distance_out_of_range'};
+  return {ok:true,distance_m:distance,angle_below_axis_deg:angle*180/Math.PI};
+}
+
+// Distance to the ground point seen at image fraction y (0 = top, 1 = bottom).
+// It refuses any calibration that was not verified by cameraCalibration: a bare
+// {ok:true} object, a hand-written JSON or a partially filled calibration all
+// produce camera_calibration_required instead of a number.
+export function groundDistance({y,calibration=null}={}){
+  if(!num(y)||y<0||y>1)return {ok:false,reason:'invalid_image_fraction'};
+  const verified=calibration?.verified===true&&calibration?.ok===true
+    &&num(calibration.focal_px)&&calibration.focal_px>0
+    &&num(calibration.height_m)&&calibration.height_m>0
+    &&num(calibration.pitch_deg)&&num(calibration.image_height_px)
+    &&Array.isArray(calibration.verification?.references)
+    &&calibration.verification.references.length>=2
+    &&calibration.verification.references.every(r=>r?.ok===true);
+  if(!verified)return {ok:false,reason:'camera_calibration_required',image_fraction:y,
+    note:'Rows cannot be converted to metres without a verified camera calibration: height, pitch, field of view and at least two independent measured distances at distinct image rows'};
+  const got=groundDistanceUnchecked({y,focalPx:calibration.focal_px,heightM:calibration.height_m,
+    pitchDeg:calibration.pitch_deg,imageHeightPx:calibration.image_height_px});
+  if(!got.ok)return {...got,image_fraction:y};
+  return {ok:true,distance_m:got.distance_m,image_fraction:y,angle_below_axis_deg:got.angle_below_axis_deg,
+    calibration_error_pct:calibration.verification.max_error_pct,
+    scope:'Ground-plane distance for a verified calibration; ignores road slope and body pitch changes'};
 }
 
 // What the whole task can and cannot conclude right now. Kept as data so a report
 // cannot quietly upgrade "rows at this angle" into "metres on the road".
 export function reachScope({calibration=null,haveMarks=false,haveFrames=false}={}){
-  return {rows_known:haveMarks&&haveFrames,metres_known:Boolean(calibration?.ok),
+  return {rows_known:haveMarks&&haveFrames,metres_known:calibration?.verified===true&&calibration?.ok===true,
     blockers:[...(!haveFrames?['no_frames_measured']:[]),...(!haveMarks?['no_asphalt_edge_marks']:[]),
-      ...(calibration?.ok?[]:['no_camera_calibration'])],
+      ...(calibration?.verified===true&&calibration?.ok===true?[]:['no_verified_camera_calibration'])],
     note:'Rows are image-space reach at this angle. Metres additionally need camera height, pitch and field of view, verified independently.',
     scope:ASPHALT_SCOPE};
 }
