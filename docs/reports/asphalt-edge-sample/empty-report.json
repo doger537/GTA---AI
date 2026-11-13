@@ -1,0 +1,96 @@
+{
+  "edge_file": "C:\\Users\\panzz\\Documents\\ChatGPT\\GTA\\work\\review-arena-20261109\\work\\asphalt-marked-20261113\\unmarked.json",
+  "session": "unmarked_check",
+  "required_rows": 13,
+  "why_not_scored": {
+    "reason": "no_asphalt_edge_marks",
+    "counts": {
+      "empty": 12,
+      "marked": 0,
+      "invalid": 0,
+      "edge_not_array": 0,
+      "unexpected_shape": 0
+    },
+    "frame_keys": "file,session,edge,obstruction,note,sha256",
+    "validation_problems": [],
+    "hints": [],
+    "explanation": "Every frame has an empty edge list: the template was copied but not labelled. Mark the far edge of visible asphalt on each frame you want scored.",
+    "note": "This file measures nothing yet. The 22/25 from the earlier mask analysis still only means the model found no road there; it says nothing about what the camera could see."
+  },
+  "scope": "Development reach report: image rows available at a marked asphalt edge versus the mask and the planner. Not a distance, not a driving result.",
+  "calibration": null,
+  "scope_of_units": {
+    "rows_known": false,
+    "metres_known": false,
+    "blockers": [
+      "no_asphalt_edge_marks",
+      "no_verified_camera_calibration"
+    ],
+    "note": "Rows are image-space reach at this angle. Metres additionally need camera height, pitch and field of view, verified independently.",
+    "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+  },
+  "summary": {
+    "frames": 12,
+    "marked": 0,
+    "scored": 0,
+    "skipped": 12,
+    "obstruction": {},
+    "first_blocker": {},
+    "view_rows": null,
+    "mask_rows": null,
+    "planner_rows": null,
+    "view_insufficient": null,
+    "view_allows_required": null
+  },
+  "rows": [
+    {
+      "file": "000000.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000001.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000002.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000003.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000004.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000005.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000006.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000007.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000008.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000009.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000010.jpg",
+      "skipped": "not_marked"
+    },
+    {
+      "file": "000011.jpg",
+      "skipped": "not_marked"
+    }
+  ],
+  "none_guessed": "Frames without a mark are skipped, never filled with a prediction."
+}

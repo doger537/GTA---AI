@@ -1,0 +1,407 @@
+{
+  "code_revision": "8ba41826aa9d5e8a8066a29d3aa307e912e956bc",
+  "annotation_source": "Codex visual reading of original JPEGs, prior diagnostic results already seen; not blinded and not human-reviewed",
+  "human_reviewed": false,
+  "summary": {
+    "frames": 12,
+    "marked": 12,
+    "scored": 12,
+    "skipped": 0,
+    "first_blocker": {
+      "view": 11,
+      "none": 1
+    },
+    "view_insufficient": 11,
+    "view_allows_required": 1,
+    "prediction_missing": 12,
+    "sensitivity_four_source_pixels": {
+      "view_insufficient": 10,
+      "view_allows_required": 1,
+      "borderline": 1
+    }
+  },
+  "scope_of_units": {
+    "rows_known": true,
+    "metres_known": false,
+    "blockers": [
+      "no_verified_camera_calibration"
+    ],
+    "note": "Rows are image-space reach at this angle. Metres additionally need camera height, pitch and field of view, verified independently.",
+    "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+  },
+  "why_not_scored": null,
+  "rows": [
+    {
+      "file": "000046.jpg",
+      "obstruction": "darkness",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.468562874251497,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 9.523952095808383,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 9.523952095808383,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000091.jpg",
+      "obstruction": "bend",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.4625748502994012,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 10.290419161676645,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 10.290419161676645,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000410.jpg",
+      "obstruction": "bend",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.344311377245509,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 25.42814371257485,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 25.42814371257485,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": true,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": null,
+        "eye_view_insufficient": false,
+        "verdict": "reachable",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000593.jpg",
+      "obstruction": "darkness",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.53515625,
+        "far_y": 0.4655688622754491,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 8.907185628742518,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 8.907185628742518,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000820.jpg",
+      "obstruction": "vehicle",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.4625748502994012,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 10.290419161676645,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 10.290419161676645,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000866.jpg",
+      "obstruction": "vehicle",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.52734375,
+        "far_y": 0.4820359281437126,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 5.799401197604787,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 5.799401197604787,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000022.jpg",
+      "obstruction": "clear",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.4431137724550898,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 12.781437125748504,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 12.781437125748504,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000087.jpg",
+      "obstruction": "junction",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.46706586826347307,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 9.715568862275447,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 9.715568862275447,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000153.jpg",
+      "obstruction": "vehicle",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.4940119760479042,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 6.266467065868262,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 6.266467065868262,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000283.jpg",
+      "obstruction": "bend",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.47005988023952094,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 9.33233532934132,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 9.33233532934132,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000349.jpg",
+      "obstruction": "junction",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.48952095808383234,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 6.841317365269461,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 6.841317365269461,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    },
+    {
+      "file": "000414.jpg",
+      "obstruction": "vehicle",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "edge": {
+        "near_y": 0.54296875,
+        "far_y": 0.47754491017964074,
+        "points": 3
+      },
+      "prediction": "prediction_missing",
+      "available_rows": 8.374251497005986,
+      "mask_rows": null,
+      "mask_reason": null,
+      "planner_rows": null,
+      "reach": {
+        "ok": true,
+        "view_rows": 8.374251497005986,
+        "mask_rows": null,
+        "planner_rows": null,
+        "required_rows": 13,
+        "binding_limit": "view",
+        "view_allows_required": false,
+        "mask_allows_required": null,
+        "planner_allows_required": null,
+        "first_blocker": "view",
+        "eye_view_insufficient": true,
+        "verdict": "view_limited",
+        "scope": "Image-space asphalt edge, grid rows available at that edge, and planner reach. Not a distance, not a lane, not clearance"
+      },
+      "metres": null
+    }
+  ]
+}
