@@ -4,7 +4,8 @@
 // recall, so a missed road pixel can never be hidden inside a false-free average.
 export const AUDIT_SCOPE='Image-space audit of the free/corridor mask against manual points on a development set. Not independent validation, not a metric clearance claim, no driving permission';
 
-export const HAZARD_KINDS=Object.freeze(['curb','pole','standing_car','blocked_view','pedestrian','wall','sign']);
+// Use vehicle when a visible vehicle's motion is unknown from the labelled frame.
+export const HAZARD_KINDS=Object.freeze(['curb','pole','standing_car','vehicle','blocked_view','pedestrian','wall','sign']);
 
 const num=x=>Number.isFinite(x);
 const clamp01=x=>Math.max(0,Math.min(1,x));
@@ -86,6 +87,15 @@ export function summarizeAudit(frames,{allowAnyFalseFree=false}={}){
   const ok=frames.filter(f=>f?.ok);
   const sum=key=>ok.reduce((a,f)=>a+(f[key]??0),0);
   const falseFreeOnPath=sum('false_free_on_path'),falseFreeAll=sum('false_free');
+  // Historical summaries can lack individual points. Preserve unknown coverage.
+  let pathCoverage=null;
+  if(ok.length && ok.every(f=>Array.isArray(f.results))){
+    const hazards=ok.flatMap(f=>f.results).filter(point=>point.expected==='hazard');
+    const inside=hazards.filter(point=>point.in_tube===true).length;
+    const outside=hazards.filter(point=>point.in_tube===false).length;
+    pathCoverage={inside,outside,unavailable:hazards.length-inside-outside,
+      false_free_fraction_inside:inside?falseFreeOnPath/inside:null};
+  }
   const byKind={};
   for(const f of ok)for(const [kind,v] of Object.entries(f.hazard_kinds??{})){
     byKind[kind]??={total:0,false_free:0};
@@ -93,7 +103,7 @@ export function summarizeAudit(frames,{allowAnyFalseFree=false}={}){
   }
   return {frames:frames.length,scored:ok.length,refused:frames.length-ok.length,
     points:sum('points'),hazard_points:sum('hazard_points'),road_points:sum('road_points'),
-    false_free_total:falseFreeAll,false_free_on_path:falseFreeOnPath,
+    false_free_total:falseFreeAll,false_free_on_path:falseFreeOnPath,path_hazard_coverage:pathCoverage,
     missed_road:sum('missed_road'),
     // Any single dangerous false-free on the intended path fails the gate.
     verdict:falseFreeOnPath>0||(allowAnyFalseFree&&falseFreeAll>0)?'false_free_found':

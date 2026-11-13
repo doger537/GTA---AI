@@ -1,0 +1,458 @@
+{
+  "selection": "20 uniform positions in each of 2 driving development sessions",
+  "annotation_source": "Codex visual review of unannotated original JPEGs before inference",
+  "human_reviewed": false,
+  "summary": {
+    "frames": 40,
+    "scored": 40,
+    "refused": 0,
+    "points": 109,
+    "hazard_points": 69,
+    "road_points": 40,
+    "false_free_total": 2,
+    "false_free_on_path": 0,
+    "path_hazard_coverage": {
+      "inside": 0,
+      "outside": 6,
+      "unavailable": 63,
+      "false_free_fraction_inside": null
+    },
+    "missed_road": 10,
+    "verdict": "road_not_traversable",
+    "by_kind": {
+      "vehicle": {
+        "total": 19,
+        "false_free": 0
+      },
+      "wall": {
+        "total": 9,
+        "false_free": 0
+      },
+      "pole": {
+        "total": 23,
+        "false_free": 0
+      },
+      "curb": {
+        "total": 11,
+        "false_free": 2
+      },
+      "pedestrian": {
+        "total": 5,
+        "false_free": 0
+      },
+      "sign": {
+        "total": 2,
+        "false_free": 0
+      }
+    },
+    "limitations": [
+      "Development frames only; these images were used while tuning the models.",
+      "A point audit is not a pixel or polygon IoU and cannot prove the whole corridor is safe.",
+      "Absence of a false-free point does not mean the corridor is drivable."
+    ]
+  },
+  "corridor_results": {
+    "valid": 3,
+    "connected_road_too_short": 25,
+    "projected_heading_not_on_road": 12
+  },
+  "hazards_in_tube": 0,
+  "hazards_without_tube": 63,
+  "failures": [
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000137.jpg",
+      "point": {
+        "x": 0.1125,
+        "y": 0.7634730538922155,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": true,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "projected_heading_not_on_road",
+      "cell": [
+        14,
+        97
+      ],
+      "class_id": 13,
+      "class_probability": 0.8748164176940918,
+      "raw_road": 0,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 1
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000228.jpg",
+      "point": {
+        "x": 0.3046875,
+        "y": 0.6616766467065869,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": true,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "projected_heading_not_on_road",
+      "cell": [
+        39,
+        84
+      ],
+      "class_id": 13,
+      "class_probability": 0.7467672228813171,
+      "raw_road": 0,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 1
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000273.jpg",
+      "point": {
+        "x": 0.6671875,
+        "y": 0.6976047904191617,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": false,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "projected_heading_not_on_road",
+      "cell": [
+        85,
+        89
+      ],
+      "class_id": 3,
+      "class_probability": 0.9624284505844116,
+      "raw_road": 0,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 0
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000638.jpg",
+      "point": {
+        "x": 0.3015625,
+        "y": 0.8473053892215568,
+        "expected": "hazard",
+        "kind": "curb",
+        "predicted_road": true,
+        "predicted_obstacle": false,
+        "in_tube": null,
+        "false_free": true,
+        "missed_road": false
+      },
+      "reason": "connected_road_too_short",
+      "cell": [
+        38,
+        108
+      ],
+      "class_id": 0,
+      "class_probability": 0.9999549984931946,
+      "raw_road": 1,
+      "road": 1,
+      "corridor_road": 1,
+      "obstacle": 0
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000729.jpg",
+      "point": {
+        "x": 0.6890625,
+        "y": 0.6976047904191617,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": false,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "projected_heading_not_on_road",
+      "cell": [
+        88,
+        89
+      ],
+      "class_id": 0,
+      "class_probability": 0.37084269523620605,
+      "raw_road": 0,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 0
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000775.jpg",
+      "point": {
+        "x": 0.7125,
+        "y": 0.6676646706586826,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": true,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "projected_heading_not_on_road",
+      "cell": [
+        91,
+        85
+      ],
+      "class_id": 13,
+      "class_probability": 0.5743483304977417,
+      "raw_road": 0,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 1
+    },
+    {
+      "session": "2026-11-03T07-08-56.123Z",
+      "file": "000820.jpg",
+      "point": {
+        "x": 0.6296875,
+        "y": 0.5838323353293413,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": false,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "connected_road_too_short",
+      "cell": [
+        80,
+        74
+      ],
+      "class_id": 0,
+      "class_probability": 0.9999838471412659,
+      "raw_road": 1,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 0
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000240.jpg",
+      "point": {
+        "x": 0.38125,
+        "y": 0.6107784431137725,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": false,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "projected_heading_not_on_road",
+      "cell": [
+        48,
+        78
+      ],
+      "class_id": 0,
+      "class_probability": 0.8792524933815002,
+      "raw_road": 1,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 0
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000283.jpg",
+      "point": {
+        "x": 0.3515625,
+        "y": 0.6347305389221557,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": false,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "connected_road_too_short",
+      "cell": [
+        45,
+        81
+      ],
+      "class_id": 0,
+      "class_probability": 0.9999927282333374,
+      "raw_road": 1,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 0
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000349.jpg",
+      "point": {
+        "x": 0.75625,
+        "y": 0.7095808383233533,
+        "expected": "hazard",
+        "kind": "curb",
+        "predicted_road": true,
+        "predicted_obstacle": false,
+        "in_tube": null,
+        "false_free": true,
+        "missed_road": false
+      },
+      "reason": "connected_road_too_short",
+      "cell": [
+        96,
+        90
+      ],
+      "class_id": 0,
+      "class_probability": 0.9961559176445007,
+      "raw_road": 1,
+      "road": 1,
+      "corridor_road": 1,
+      "obstacle": 0
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000370.jpg",
+      "point": {
+        "x": 0.621875,
+        "y": 0.6706586826347305,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": false,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "connected_road_too_short",
+      "cell": [
+        79,
+        85
+      ],
+      "class_id": 0,
+      "class_probability": 0.9686766862869263,
+      "raw_road": 1,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 0
+    },
+    {
+      "session": "2026-11-08T15-40-33.499Z",
+      "file": "000392.jpg",
+      "point": {
+        "x": 0.628125,
+        "y": 0.6586826347305389,
+        "expected": "road",
+        "kind": null,
+        "predicted_road": false,
+        "predicted_obstacle": false,
+        "in_tube": null,
+        "false_free": false,
+        "missed_road": true
+      },
+      "reason": "connected_road_too_short",
+      "cell": [
+        80,
+        84
+      ],
+      "class_id": 0,
+      "class_probability": 0.9999281764030457,
+      "raw_road": 1,
+      "road": 0,
+      "corridor_road": 0,
+      "obstacle": 0
+    }
+  ],
+  "motion": {
+    "session": "2026-11-08T15-38-57.504Z",
+    "pairs": 71,
+    "confident": 3,
+    "refusals": {
+      "shift_ambiguous": 68
+    },
+    "below_margin": 68,
+    "above_uncertainty": 0,
+    "below_overlap": 0,
+    "failed_peak": {
+      "n": 68,
+      "min": 0.9561910722786867,
+      "p50": 0.9953052971966717,
+      "p95": 0.9994521061602033,
+      "max": 0.9997429037770045,
+      "mean": 0.9913426277582694
+    },
+    "failed_margin": {
+      "n": 68,
+      "min": 0.017509085195028917,
+      "p50": 0.0315780931422579,
+      "p95": 0.04280705970534271,
+      "max": 0.049824610476710385,
+      "mean": 0.03338727941560835
+    },
+    "failed_best_shift": {
+      "0": 57,
+      "-1": 11
+    },
+    "failed_rival": {
+      "n": 68,
+      "min": 0.9247787505875342,
+      "p50": 0.9604187684268137,
+      "p95": 0.9695512173967934,
+      "max": 0.9733116870450125,
+      "mean": 0.957955348342661
+    },
+    "profile_examples": [
+      {
+        "n": 0,
+        "grid": 128,
+        "rows": 20,
+        "coverage": 0.090234375,
+        "occupied_columns": 36
+      },
+      {
+        "n": 1,
+        "grid": 128,
+        "rows": 20,
+        "coverage": 0.090234375,
+        "occupied_columns": 37
+      },
+      {
+        "n": 35,
+        "grid": 128,
+        "rows": 20,
+        "coverage": 0.08671875,
+        "occupied_columns": 37
+      },
+      {
+        "n": 36,
+        "grid": 128,
+        "rows": 20,
+        "coverage": 0.0875,
+        "occupied_columns": 37
+      },
+      {
+        "n": 70,
+        "grid": 128,
+        "rows": 20,
+        "coverage": 0.09453125,
+        "occupied_columns": 37
+      },
+      {
+        "n": 71,
+        "grid": 128,
+        "rows": 20,
+        "coverage": 0.094140625,
+        "occupied_columns": 37
+      }
+    ]
+  }
+}

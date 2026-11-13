@@ -1,4 +1,5 @@
 import {fileURLToPath} from 'node:url';
+import {createHash} from 'node:crypto';
 // Offline false-free audit: runs the working perception on labelled development
 // frames (or on a saved recording) and checks where the mask calls "free" a place
 // a human marked as curb, pole, standing car or blocked view. No input, no bridge.
@@ -23,6 +24,9 @@ export async function auditLabels({labelFile,resolveImage,analyze,resolveMinimap
   for(const frame of label.frames){
     const started=clock();
     const bytes=typeof resolveImage==='function'?await resolveImage(frame.file):Buffer.from(frame.file);
+    if(frame.sha256!=null && createHash('sha256').update(bytes).digest('hex')!==frame.sha256){
+      throw Error('Label source image hash mismatch for '+frame.file);
+    }
     const p=await analyze(bytes,{cameraProfile});
     const corridor=connectedRoadGeometry(p.semantic??p,intent);
     const tube=corridor.valid?pathTube(corridor,{mask:p.semantic??p}):null;
@@ -42,6 +46,7 @@ export async function auditLabels({labelFile,resolveImage,analyze,resolveMinimap
   }
   const sequence=frames.length>1?motion.summary():null;
   return {label_file:path.resolve(labelFile),session:label.session??null,intent,camera_profile:cameraProfile,
+    annotation_source:label.annotation_source??null,human_reviewed:typeof label.human_reviewed==='boolean'?label.human_reviewed:null,
     scope:'Offline image-space audit on labelled development frames. Not independent validation and not a driving result.',
     summary:summarizeAudit(frames.map(f=>f.audit)),drift_summary:drifts.length?{frames:drifts.length,median:percentiles(drifts).p50,p95:percentiles(drifts).p95,units:'image fractions'}:null,
     // Corridor geometry (drift) and inter-frame motion are two different questions:

@@ -1,0 +1,616 @@
+{
+  "schema_version": 1,
+  "session": "2026-11-03T07-08-56.123Z",
+  "role": "development",
+  "instructions": [
+    "Label original images before looking at any prediction.",
+    "expected:\"road\" for drivable asphalt, \"hazard\" for anything a car must not hit.",
+    "Every hazard needs a kind: curb, pole, standing_car, vehicle, blocked_view, pedestrian, wall, sign.",
+    "Use null for a point you cannot decide; do not guess.",
+    "scene.kind and camera_yaw describe the whole frame, not the path."
+  ],
+  "hazard_kinds": [
+    "curb",
+    "pole",
+    "standing_car",
+    "vehicle",
+    "blocked_view",
+    "pedestrian",
+    "wall",
+    "sign"
+  ],
+  "frames": [
+    {
+      "file": "000000.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.2015625,
+          "y": 0.5479041916167665,
+          "expected": "road"
+        },
+        {
+          "x": 0.1203125,
+          "y": 0.4221556886227545,
+          "expected": "hazard",
+          "kind": "vehicle"
+        },
+        {
+          "x": 0.8578125,
+          "y": 0.3502994011976048,
+          "expected": "hazard",
+          "kind": "wall"
+        }
+      ],
+      "note": "",
+      "sha256": "851a4ec308af4eca80d78dc6901736628211d6efad21c705d78c92ab3ae50314"
+    },
+    {
+      "file": "000046.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.6203125,
+          "y": 0.5359281437125748,
+          "expected": "road"
+        },
+        {
+          "x": 0.1421875,
+          "y": 0.562874251497006,
+          "expected": "hazard",
+          "kind": "vehicle"
+        },
+        {
+          "x": 0.9109375,
+          "y": 0.5688622754491018,
+          "expected": "hazard",
+          "kind": "pole"
+        }
+      ],
+      "note": "",
+      "sha256": "d452bdf86f521e9dfa471f6f0267e40a263c0e73f7e73a8b6a98cb2cd25939ac"
+    },
+    {
+      "file": "000091.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.3,
+          "y": 0.6197604790419161,
+          "expected": "road"
+        },
+        {
+          "x": 0.7890625,
+          "y": 0.5269461077844312,
+          "expected": "hazard",
+          "kind": "pole"
+        },
+        {
+          "x": 0.9,
+          "y": 0.4940119760479042,
+          "expected": "hazard",
+          "kind": "wall"
+        }
+      ],
+      "note": "",
+      "sha256": "6d94977f27c18bededb6f56008714905dbbdf2755f3ccba090bb0381f60a125e"
+    },
+    {
+      "file": "000137.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.1125,
+          "y": 0.7634730538922155,
+          "expected": "road"
+        },
+        {
+          "x": 0.234375,
+          "y": 0.6526946107784432,
+          "expected": "hazard",
+          "kind": "vehicle"
+        }
+      ],
+      "note": "",
+      "sha256": "0f4f5f7573070d3e56595a79dc822a5e73d696aad680b5811f8adeef9254134e"
+    },
+    {
+      "file": "000182.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.275,
+          "y": 0.6497005988023952,
+          "expected": "road"
+        },
+        {
+          "x": 0.5828125,
+          "y": 0.5,
+          "expected": "hazard",
+          "kind": "pole"
+        },
+        {
+          "x": 0.6828125,
+          "y": 0.41916167664670656,
+          "expected": "hazard",
+          "kind": "wall"
+        }
+      ],
+      "note": "",
+      "sha256": "1b1c1b1aaeaf82c6f02591e678644418caffff517caa2ae8b2ee6e4f9b248f1f"
+    },
+    {
+      "file": "000228.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.3046875,
+          "y": 0.6616766467065869,
+          "expected": "road"
+        },
+        {
+          "x": 0.8234375,
+          "y": 0.5089820359281437,
+          "expected": "hazard",
+          "kind": "pedestrian"
+        },
+        {
+          "x": 0.7359375,
+          "y": 0.6586826347305389,
+          "expected": "hazard",
+          "kind": "curb"
+        }
+      ],
+      "note": "",
+      "sha256": "5b02ed2d167a30b3ab8a5b83cd32cf605281e2cf0feaa19b4d0ca34c88e46c1c"
+    },
+    {
+      "file": "000273.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.6671875,
+          "y": 0.6976047904191617,
+          "expected": "road"
+        },
+        {
+          "x": 0.928125,
+          "y": 0.4550898203592814,
+          "expected": "hazard",
+          "kind": "pole"
+        }
+      ],
+      "note": "",
+      "sha256": "1252f60dd363755dff88591e9ccf451d3584f6799a4ef1bea9ee55042c24d71b"
+    },
+    {
+      "file": "000319.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.76875,
+          "y": 0.6167664670658682,
+          "expected": "road"
+        },
+        {
+          "x": 0.0609375,
+          "y": 0.5179640718562875,
+          "expected": "hazard",
+          "kind": "vehicle"
+        }
+      ],
+      "note": "",
+      "sha256": "3ba73c862b660f1709eac937633413ff8ceb2b6d9ea8da0dfca07e4af90be866"
+    },
+    {
+      "file": "000365.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.325,
+          "y": 0.6826347305389222,
+          "expected": "road"
+        },
+        {
+          "x": 0.04375,
+          "y": 0.5598802395209581,
+          "expected": "hazard",
+          "kind": "pole"
+        },
+        {
+          "x": 0.9359375,
+          "y": 0.5868263473053892,
+          "expected": "hazard",
+          "kind": "vehicle"
+        }
+      ],
+      "note": "",
+      "sha256": "fd3e3d7910c6c08683a3303e701fb6b54eaaf05498244c50c58025f33e4c4637"
+    },
+    {
+      "file": "000410.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.7390625,
+          "y": 0.7125748502994012,
+          "expected": "road"
+        },
+        {
+          "x": 0.5203125,
+          "y": 0.5089820359281437,
+          "expected": "hazard",
+          "kind": "vehicle"
+        },
+        {
+          "x": 0.6703125,
+          "y": 0.4041916167664671,
+          "expected": "hazard",
+          "kind": "wall"
+        }
+      ],
+      "note": "",
+      "sha256": "0ea9c673e32c738e51479481b7587e83ba483f29c592dd3155cdb1aa08c51eca"
+    },
+    {
+      "file": "000456.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.2671875,
+          "y": 0.7155688622754491,
+          "expected": "road"
+        },
+        {
+          "x": 0.8796875,
+          "y": 0.49101796407185627,
+          "expected": "hazard",
+          "kind": "pole"
+        },
+        {
+          "x": 0.759375,
+          "y": 0.5479041916167665,
+          "expected": "hazard",
+          "kind": "pedestrian"
+        }
+      ],
+      "note": "",
+      "sha256": "00690eddcc1314d530c8bb8106e8a3faed23f02f6448127a930f49dd4a5d55bc"
+    },
+    {
+      "file": "000501.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.315625,
+          "y": 0.6646706586826348,
+          "expected": "road"
+        },
+        {
+          "x": 0.765625,
+          "y": 0.38922155688622756,
+          "expected": "hazard",
+          "kind": "wall"
+        },
+        {
+          "x": 0.4828125,
+          "y": 0.39820359281437123,
+          "expected": "hazard",
+          "kind": "vehicle"
+        }
+      ],
+      "note": "",
+      "sha256": "53237b918ff7b8562c70607d85d20d755ef0530c67dfdd9d6eeccf9c5f286d5a"
+    },
+    {
+      "file": "000547.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.1796875,
+          "y": 0.6437125748502994,
+          "expected": "road"
+        },
+        {
+          "x": 0.7828125,
+          "y": 0.6077844311377245,
+          "expected": "hazard",
+          "kind": "pole"
+        },
+        {
+          "x": 0.7375,
+          "y": 0.7754491017964071,
+          "expected": "hazard",
+          "kind": "curb"
+        }
+      ],
+      "note": "",
+      "sha256": "336f42d2af10e7134d02d1640ec60c320e8156fff4f152b1394b3d2288a068f6"
+    },
+    {
+      "file": "000593.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.3453125,
+          "y": 0.5598802395209581,
+          "expected": "road"
+        },
+        {
+          "x": 0.653125,
+          "y": 0.4251497005988024,
+          "expected": "hazard",
+          "kind": "pole"
+        },
+        {
+          "x": 0.7828125,
+          "y": 0.47904191616766467,
+          "expected": "hazard",
+          "kind": "wall"
+        }
+      ],
+      "note": "",
+      "sha256": "f80cd290b944bf83bbc5b1cc05ee2b4739b17a6bf102254613cce83ecba0b302"
+    },
+    {
+      "file": "000638.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.240625,
+          "y": 0.6197604790419161,
+          "expected": "road"
+        },
+        {
+          "x": 0.0671875,
+          "y": 0.5089820359281437,
+          "expected": "hazard",
+          "kind": "pole"
+        },
+        {
+          "x": 0.3015625,
+          "y": 0.8473053892215568,
+          "expected": "hazard",
+          "kind": "curb"
+        }
+      ],
+      "note": "",
+      "sha256": "9db16924cfe8a20beb0dce51493a2754e59183330dbfd380df16214ec34ce226"
+    },
+    {
+      "file": "000684.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.3078125,
+          "y": 0.7604790419161677,
+          "expected": "road"
+        },
+        {
+          "x": 0.8484375,
+          "y": 0.5538922155688623,
+          "expected": "hazard",
+          "kind": "vehicle"
+        },
+        {
+          "x": 0.265625,
+          "y": 0.5568862275449101,
+          "expected": "hazard",
+          "kind": "pole"
+        }
+      ],
+      "note": "",
+      "sha256": "49794f95a441f1d21722aa22e175b4a40f17829f1fca3a1185478af0ff809fba"
+    },
+    {
+      "file": "000729.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.6890625,
+          "y": 0.6976047904191617,
+          "expected": "road"
+        },
+        {
+          "x": 0.1203125,
+          "y": 0.5119760479041916,
+          "expected": "hazard",
+          "kind": "vehicle"
+        },
+        {
+          "x": 0.68125,
+          "y": 0.46407185628742514,
+          "expected": "hazard",
+          "kind": "pole"
+        }
+      ],
+      "note": "",
+      "sha256": "7a823d735a26619798bd9e72f94c49592dc4a383b86154087ee1a9a401a56eff"
+    },
+    {
+      "file": "000775.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.7125,
+          "y": 0.6676646706586826,
+          "expected": "road"
+        },
+        {
+          "x": 0.2921875,
+          "y": 0.5089820359281437,
+          "expected": "hazard",
+          "kind": "vehicle"
+        }
+      ],
+      "note": "",
+      "sha256": "ed3fc194ce7cd19144b50e105a2fcc06a818bb1ee9436b7ab595690ec4f23300"
+    },
+    {
+      "file": "000820.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.6296875,
+          "y": 0.5838323353293413,
+          "expected": "road"
+        },
+        {
+          "x": 0.7796875,
+          "y": 0.5898203592814372,
+          "expected": "hazard",
+          "kind": "vehicle"
+        },
+        {
+          "x": 0.3875,
+          "y": 0.44610778443113774,
+          "expected": "hazard",
+          "kind": "pole"
+        }
+      ],
+      "note": "",
+      "sha256": "bfaff85a905395644aa0c395fc64d8b7d1b4367ad4a886e7dfa80f74106a2631"
+    },
+    {
+      "file": "000866.jpg",
+      "session": "2026-11-03T07-08-56.123Z",
+      "role": "development",
+      "scene": {
+        "kind": null,
+        "camera_yaw": null,
+        "ego_visible": null
+      },
+      "points": [
+        {
+          "x": 0.75625,
+          "y": 0.7155688622754491,
+          "expected": "road"
+        },
+        {
+          "x": 0.6921875,
+          "y": 0.4101796407185629,
+          "expected": "hazard",
+          "kind": "wall"
+        }
+      ],
+      "note": "",
+      "sha256": "1915d295909c75038a67799a16fcb58d9649fd183067611515903351eec28b58"
+    }
+  ],
+  "annotation_source": "Codex visual inspection of original JPEGs, before inference; human_reviewed=false",
+  "human_reviewed": false
+}

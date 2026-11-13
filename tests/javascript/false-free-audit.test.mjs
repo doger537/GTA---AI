@@ -36,6 +36,18 @@ test('the path tube is derived only from the corridor and reports image units',(
  assert.ok(wide.cells>narrow.cells);
 });
 
+test('separate inside, outside and unavailable path coverage for labelled vehicles',()=>{
+ const mask=scene({roadAt:[[.5,.5],[.2,.5]]});
+ const points=[.5,.2].map(x=>({x,y:.5,expected:'hazard',kind:'vehicle'}));
+ const withoutPath=auditFrame(mask,points);
+ const outside=auditFrame(mask,points.slice(1),{corridor,tube:tubeOf()});
+ assert.deepEqual(summarizeAudit([withoutPath,outside]).path_hazard_coverage,
+   {inside:0,outside:1,unavailable:2,false_free_fraction_inside:null});
+ const onPath=auditFrame(mask,points,{corridor,tube:tubeOf()});
+ assert.deepEqual(summarizeAudit([onPath]).path_hazard_coverage,
+   {inside:1,outside:1,unavailable:0,false_free_fraction_inside:1});
+});
+
 test('every hazard needs a known kind and an unlabelled point is never guessed',()=>{
  const p=scene({roadAt:[[.5,.5]]});
  assert.throws(()=>auditFrame(p,[{x:.5,y:.5,expected:'hazard'}]),/known kind/);

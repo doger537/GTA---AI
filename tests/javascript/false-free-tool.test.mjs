@@ -37,6 +37,20 @@ test('the tool refuses empty labels and never guesses a missing point',async()=>
  }finally{await rm(dir,{recursive:true,force:true});}
 });
 
+test('an audit binds supplied labels to source bytes before inference and retains their origin',async()=>{
+ const {createHash}=await import('node:crypto');
+ const {dir,file}=await labelfile([{file:'000000.jpg',points:[{x:.5,y:.5,expected:'road'}]}]);
+ try{
+  const bytes=Buffer.from('fixture'),doc=JSON.parse(await readFile(file,'utf8'));
+  doc.frames[0].sha256=createHash('sha256').update(bytes).digest('hex');
+  doc.human_reviewed=false;doc.annotation_source='visual review by Codex';
+  await writeFile(file,JSON.stringify(doc));
+  await assert.rejects(auditLabels({labelFile:file,resolveImage:()=>Buffer.from('different'),analyze:()=>assert.fail('wrong image reached inference')}),/source image hash mismatch/);
+  const report=await auditLabels({labelFile:file,resolveImage:()=>bytes,analyze:()=>corridorFrame});
+  assert.equal(report.human_reviewed,false);assert.equal(report.annotation_source,doc.annotation_source);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
 test('a labelled hazard on the mask is reported per kind with the path flag',async()=>{
  const {dir,file}=await labelfile([
   {file:'000000.jpg',points:[{x:.5,y:.5,expected:'hazard',kind:'pole'},{x:.5,y:.45,expected:'road'}]},
