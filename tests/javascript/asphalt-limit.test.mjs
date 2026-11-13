@@ -281,3 +281,70 @@ test('one unreadable frame does not abort the report',async()=>{
   assert.equal(report.summary.scored,1);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+test('a path planned past the marked asphalt is its own error, not a depth success',()=>{
+ const available={ok:true,rows_from_seed:6.27};
+ const beyond=classifyReach({available,planner:9});
+ assert.equal(beyond.planned_beyond_mark,true);
+ assert.ok(Math.abs(beyond.rows_beyond_mark-2.73)<1e-9);
+ assert.equal(beyond.first_blocker,'beyond_mark');
+ assert.equal(beyond.verdict,'planned_beyond_mark');
+ // A fraction of a row is mark noise, not a claim that the mask invented road.
+ const inside=classifyReach({available,planner:6.5});
+ assert.equal(inside.planned_beyond_mark,false);
+ assert.equal(inside.first_blocker,'view');
+ // The tolerance itself must be a real number, and negative is refused.
+ assert.equal(classifyReach({available,planner:9,beyondMarkToleranceRows:-1}).reason,'invalid_beyond_mark_tolerance');
+ assert.equal(classifyReach({available,planner:null}).planned_beyond_mark,false);
+});
+
+test('the join uses recorded depth without re-running a model and reports skipped frames',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'join-'));
+ try{
+  const edges=emptyEdgeFile({files:['000000.jpg','000010.jpg','000020.jpg']});
+  edges.frames[0].edge=[[.5,.543],[.5,.50],[.5,.469]];
+  // A short visible span (.543 -> .50 = ~5.5 rows) against a planner depth of 9.
+  edges.frames[1].edge=[[.5,.543],[.5,.50]];
+  edges.frames[2].edge=[];
+  await writeFile(path.join(dir,'edges.json'),JSON.stringify(edges));
+  // Seed row 69 on a 128 grid, depth 5 rows, plus a frame that is not in the marks.
+  await writeFile(path.join(dir,'breaks.json'),JSON.stringify({base:'abc',rows:[
+    {file:'000000.jpg',seed:[64,69],depth:5,first_blocked_row:64,first_layer_short:'confidence'},
+    {file:'000010.jpg',seed:[64,69],depth:9}]}));
+  const {joinReach}=await import('../../experiments/tools/join-asphalt-reach.mjs');
+  const report=await joinReach({edgeFile:path.join(dir,'edges.json'),depthFile:path.join(dir,'breaks.json')});
+  assert.equal(report.summary.frames,3);
+  assert.equal(report.summary.scored,2);
+  assert.equal(report.summary.missing_depth,0);
+  assert.equal(report.rows[2].skipped,'not_marked');
+  // Frame 1: the view offers ~9.5 rows, the planner used 5. Required is 13, so both
+  // the view and the planner fall short and the view is named first: a planner
+  // cannot be blamed for rows the camera never offered.
+  const first=report.rows[0];
+  assert.ok(Math.abs(first.seed_y-(69.5)/128)<1e-9);
+  assert.ok(Math.abs(first.available_rows-9.47)<0.01);
+  assert.equal(first.reach.first_blocker,'view');
+  assert.equal(first.reach.planner_allows_required,false);
+  // Frame 2: the planner went past its own marked edge.
+  const second=report.rows[1];
+  assert.equal(second.reach.planned_beyond_mark,true);
+  assert.equal(report.summary.planned_beyond_mark,1);
+  assert.equal(report.depth_source.base,'abc');
+  assert.match(report.depth_source.note,/does not re-infer/);
+  assert.equal(report.calibration,null);
+  assert.equal(report.scope_of_units.metres_known,false);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('the join refuses an unverified calibration instead of quietly printing no metres',async()=>{
+ const dir=await mkdtemp(path.join(tmpdir(),'join-'));
+ try{
+  const edges=emptyEdgeFile({files:['000000.jpg']});
+  edges.frames[0].edge=[[.5,.543],[.5,.469]];
+  await writeFile(path.join(dir,'edges.json'),JSON.stringify(edges));
+  await writeFile(path.join(dir,'breaks.json'),JSON.stringify({rows:[{file:'000000.jpg',seed:[64,69],depth:5}]}));
+  const {joinReach}=await import('../../experiments/tools/join-asphalt-reach.mjs');
+  await assert.rejects(joinReach({edgeFile:path.join(dir,'edges.json'),depthFile:path.join(dir,'breaks.json'),
+    calibration:{heightM:1.2,pitchDeg:-3,verticalFovDeg:40,imageHeightPx:668,source:'measured'}}),/not verified/);
+ }finally{await rm(dir,{recursive:true,force:true});}
+});

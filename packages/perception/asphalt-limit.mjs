@@ -70,9 +70,10 @@ export function rowsAvailable({profile,gridHeight,seedY=null}={}){
 // Compares the three independent limits for one frame and names the first one
 // that bites. Order matters: a planner cannot be blamed for rows the view does
 // not offer, and the view cannot be blamed for rows the mask already lost.
-export function classifyReach({available=null,planner=null,maskReachRows=null,requiredRows=13}={}){
+export function classifyReach({available=null,planner=null,maskReachRows=null,requiredRows=13,beyondMarkToleranceRows=0.5}={}){
   if(!available?.ok)return {ok:false,reason:available?.reason??'available_rows_required'};
   if(!Number.isInteger(requiredRows)||requiredRows<1)return {ok:false,reason:'invalid_required_rows'};
+  if(!num(beyondMarkToleranceRows)||beyondMarkToleranceRows<0)return {ok:false,reason:'invalid_beyond_mark_tolerance'};
   const viewRows=available.rows_from_seed;
   const plannerRows=num(planner)&&planner>=0?planner:null;
   const maskRows=num(maskReachRows)&&maskReachRows>=0?maskReachRows:null;
@@ -84,14 +85,20 @@ export function classifyReach({available=null,planner=null,maskReachRows=null,re
   const viewAllows=viewRows>=requiredRows;
   const maskAllows=maskRows===null?null:maskRows>=requiredRows;
   const plannerAllows=plannerRows===null?null:plannerRows>=requiredRows;
-  const firstBlocker=!viewAllows?'view':maskAllows===false?'mask':plannerAllows===false?'planner':null;
+  // A path that runs past the last distinguishable asphalt is not a depth success:
+  // the mask kept road where the human could no longer see surface. Tolerance is
+  // sub-row, because a mark is a judgement, not a mathematical horizon.
+  const beyondMark=plannerRows!==null&&plannerRows>viewRows+beyondMarkToleranceRows;
+  const firstBlocker=beyondMark?'beyond_mark':!viewAllows?'view':maskAllows===false?'mask':plannerAllows===false?'planner':null;
   return {ok:true,view_rows:viewRows,mask_rows:maskRows,planner_rows:plannerRows,
     required_rows:requiredRows,binding_limit:binding.name,
+    planned_beyond_mark:beyondMark,
+    rows_beyond_mark:beyondMark?plannerRows-viewRows:0,
     view_allows_required:viewAllows,mask_allows_required:maskAllows,planner_allows_required:plannerAllows,
     first_blocker:firstBlocker,
     // A frame where the view alone is short is not a perception failure at all.
     eye_view_insufficient:!viewAllows,
-    verdict:firstBlocker===null?'reachable':firstBlocker+'_limited',
+    verdict:firstBlocker===null?'reachable':firstBlocker==='beyond_mark'?'planned_beyond_mark':firstBlocker+'_limited',
     scope:ASPHALT_SCOPE};
 }
 
