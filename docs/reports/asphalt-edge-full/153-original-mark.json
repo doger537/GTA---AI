@@ -1,0 +1,23 @@
+{
+  "file": "000153.jpg",
+  "session": "2026-11-08T15-40-33.499Z",
+  "edge": [
+    [
+      0.5,
+      0.54296875
+    ],
+    [
+      0.50625,
+      0.5104790419161677
+    ],
+    [
+      0.50859375,
+      0.4940119760479042
+    ]
+  ],
+  "obstruction": "vehicle",
+  "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+  "sha256": "56d0cb07f3d30e7e4cd876aa9efcdac9eab7a4532e2b93dbea75ccd1c5fb1835",
+  "original_file": "000153.jpg",
+  "far_y_uncertainty": 0.005988023952095809
+}

@@ -1,0 +1,64 @@
+[
+  {
+    "session": "2026-11-03T07-08-56.123Z",
+    "frames": 20,
+    "hazards": 35,
+    "false_free": 1,
+    "by_kind": {
+      "vehicle": {
+        "total": 11,
+        "false_free": 0
+      },
+      "wall": {
+        "total": 7,
+        "false_free": 0
+      },
+      "pole": {
+        "total": 12,
+        "false_free": 0
+      },
+      "curb": {
+        "total": 3,
+        "false_free": 1
+      },
+      "pedestrian": {
+        "total": 2,
+        "false_free": 0
+      }
+    },
+    "all_point_results_equal": true
+  },
+  {
+    "session": "2026-11-08T15-40-33.499Z",
+    "frames": 20,
+    "hazards": 34,
+    "false_free": 1,
+    "by_kind": {
+      "curb": {
+        "total": 8,
+        "false_free": 1
+      },
+      "pole": {
+        "total": 11,
+        "false_free": 0
+      },
+      "vehicle": {
+        "total": 8,
+        "false_free": 0
+      },
+      "sign": {
+        "total": 2,
+        "false_free": 0
+      },
+      "pedestrian": {
+        "total": 3,
+        "false_free": 0
+      },
+      "wall": {
+        "total": 2,
+        "false_free": 0
+      }
+    },
+    "all_point_results_equal": true
+  }
+]

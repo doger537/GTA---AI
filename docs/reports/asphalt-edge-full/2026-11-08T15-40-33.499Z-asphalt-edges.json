@@ -1,0 +1,407 @@
+{
+  "schema_version": 1,
+  "session": "2026-11-08T15-40-33.499Z",
+  "role": "development",
+  "instructions": [
+    "Mark the far edge of continuously visible asphalt: the last place where you can still see road surface, not where the mask ends.",
+    "edge is a polyline of [x,y] image fractions from the bottom of the frame upwards; y must strictly decrease.",
+    "Mark both edges of the visible asphalt if the far edge is a horizontal cut; one node is not enough.",
+    "obstruction:\"clear\" when asphalt continues past the mark, or the kind of thing that hides it: curb, edge, shadow, vehicle, junction, bend, darkness, other.",
+    "Do not look at any prediction first, and do not mark the mask as the road: a wrong mask is exactly what this file is meant to catch."
+  ],
+  "obstruction_kinds": [
+    "clear",
+    "curb",
+    "edge",
+    "shadow",
+    "vehicle",
+    "junction",
+    "bend",
+    "darkness",
+    "other"
+  ],
+  "frames": [
+    {
+      "file": "000022.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.49765625,
+          0.4865269461077844
+        ],
+        [
+          0.4765625,
+          0.4431137724550898
+        ]
+      ],
+      "obstruction": "clear",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "sha256": "61239b2df780a4cf959c552204d6c12f2dfc87a41d411e9ee7158efbae156514",
+      "original_file": "000022.jpg",
+      "far_y_uncertainty": 0.005988023952095809
+    },
+    {
+      "file": "000044.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "0f9bddde05fa88951540162bfcde2c1e05658cd131d043faab916078de8059ef",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.5078125,
+          0.4940119760479042
+        ],
+        [
+          0.50390625,
+          0.4550898203592814
+        ]
+      ],
+      "obstruction": "junction",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000065.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "3cab6a193eef129b4395632cbc091fac870be0cf9e901f4b4c09e8f7bc078f19",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.4921875,
+          0.49850299401197606
+        ],
+        [
+          0.48828125,
+          0.4625748502994012
+        ]
+      ],
+      "obstruction": "junction",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000087.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.46640625,
+          0.5059880239520959
+        ],
+        [
+          0.48203125,
+          0.46706586826347307
+        ]
+      ],
+      "obstruction": "junction",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "sha256": "89ebade1125c979c4b0f672cb12670b4f02852e7dbd38e236dd7f7921d6f9a96",
+      "original_file": "000087.jpg",
+      "far_y_uncertainty": 0.005988023952095809
+    },
+    {
+      "file": "000109.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "cbac350543b0a9861ce32a533ae3fc59fbf7828018807435076463085eedbd09",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.5390625,
+          0.5014970059880239
+        ],
+        [
+          0.5703125,
+          0.468562874251497
+        ]
+      ],
+      "obstruction": "vehicle",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000131.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "a0184b2c9c46de67bfaa1b33792c1912a0b3f3b19c11d4c85c44445eab3b8cc6",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.5078125,
+          0.5
+        ],
+        [
+          0.5078125,
+          0.45808383233532934
+        ]
+      ],
+      "obstruction": "clear",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000153.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.484375,
+          0.5
+        ],
+        [
+          0.4765625,
+          0.45808383233532934
+        ]
+      ],
+      "obstruction": "clear",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels. Revised after original-image and actual-path review: follow asphalt left of the red car. Original ended behind its bumper on a different X line. No mask-under-car defect established.",
+      "sha256": "56d0cb07f3d30e7e4cd876aa9efcdac9eab7a4532e2b93dbea75ccd1c5fb1835",
+      "original_file": "000153.jpg",
+      "far_y_uncertainty": 0.005988023952095809
+    },
+    {
+      "file": "000174.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "5281d93d3528e3eb5dad609a784b9bdfb005a73ca8437c5ffc6b07623a181409",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.484375,
+          0.5239520958083832
+        ],
+        [
+          0.4765625,
+          0.5089820359281437
+        ]
+      ],
+      "obstruction": "vehicle",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000196.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "234e92cdda8a2545588cc4095c4f90bbf9418657abc1005c5f5fef8da86563b4",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.515625,
+          0.5164670658682635
+        ],
+        [
+          0.5078125,
+          0.47904191616766467
+        ]
+      ],
+      "obstruction": "junction",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000218.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "cb760118d35c8bca657330b7e329268210f302fecb0faac2c45c734232efa84e",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.5,
+          0.49850299401197606
+        ],
+        [
+          0.5,
+          0.46407185628742514
+        ]
+      ],
+      "obstruction": "clear",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000283.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.50078125,
+          0.5014970059880239
+        ],
+        [
+          0.50234375,
+          0.47005988023952094
+        ]
+      ],
+      "obstruction": "bend",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "sha256": "827cdf098c8689e27cdaccff533a494fd73e1f8e677550d7b596f6a0f269435c",
+      "original_file": "000283.jpg",
+      "far_y_uncertainty": 0.005988023952095809
+    },
+    {
+      "file": "000305.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "edf34995a2e35c2e815df330fbaed0f6b910c950f6696096be622211fe234dc7",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.484375,
+          0.5089820359281437
+        ],
+        [
+          0.4375,
+          0.4820359281437126
+        ]
+      ],
+      "obstruction": "bend",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000327.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "60dd326cbc4adb6e96798b52fe62402a2a6d6c7e3198396f231b322286793426",
+      "edge": [
+        [
+          0.46875,
+          0.54296875
+        ],
+        [
+          0.359375,
+          0.5119760479041916
+        ],
+        [
+          0.234375,
+          0.47754491017964074
+        ]
+      ],
+      "obstruction": "bend",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000349.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.484375,
+          0.5074850299401198
+        ],
+        [
+          0.4609375,
+          0.48952095808383234
+        ]
+      ],
+      "obstruction": "junction",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "sha256": "698c30d1c99685a4fd1f5608db25aaf490932ae4a8ee93a99db5afacae4d248c",
+      "original_file": "000349.jpg",
+      "far_y_uncertainty": 0.005988023952095809
+    },
+    {
+      "file": "000370.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "8320f7236f0e78eb858a9a32324920d92e75270ed813f1deecd3598e97377ca9",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.4921875,
+          0.5014970059880239
+        ],
+        [
+          0.484375,
+          0.4625748502994012
+        ]
+      ],
+      "obstruction": "junction",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000392.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "sha256": "eb1e96b0af98cfb07ed5b581cf3ab5ebc55c683a8d410e57a66f094776125035",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.51171875,
+          0.5269461077844312
+        ],
+        [
+          0.5078125,
+          0.5089820359281437
+        ]
+      ],
+      "obstruction": "vehicle",
+      "far_y_uncertainty": 0.005988023952095809,
+      "note": "Codex visual reading of original JPEG; prior predictions seen, human_reviewed=false. Near Y anchored to production seed row; X follows visible asphalt. Far Y +/-4px is a sensitivity check."
+    },
+    {
+      "file": "000414.jpg",
+      "session": "2026-11-08T15-40-33.499Z",
+      "edge": [
+        [
+          0.5,
+          0.54296875
+        ],
+        [
+          0.4984375,
+          0.5044910179640718
+        ],
+        [
+          0.490625,
+          0.47754491017964074
+        ]
+      ],
+      "obstruction": "vehicle",
+      "note": "Codex visual reading of original JPEG; prior predictions seen. Near Y is production seed-row centre, X chosen on visible asphalt. Far Y uncertainty +/-4 source pixels.",
+      "sha256": "ab8923bf9619b3632c71913f5b55a1b49c4afdf71c64f750562193829924fc99",
+      "original_file": "000414.jpg",
+      "far_y_uncertainty": 0.005988023952095809
+    }
+  ],
+  "annotation_source": "Codex visual reading of original JPEGs, prior diagnostic results already seen; not blinded and not human-reviewed",
+  "human_reviewed": false
+}
